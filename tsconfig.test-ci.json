@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "noEmit": false,
+    "noLib": false,
+    "allowJs": true,
+    "checkJs": true
+  },
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/**/*.spec.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

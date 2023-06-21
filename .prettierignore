@@ -1,0 +1,8 @@
+src/data-access/migrations
+src/data-access/seed-data/dev-scripts
+src/data-access/seed-data/dev-scripts/**/*
+src/data-access/seed-data/scripts
+src/data-access/seed-data/scripts/**/*
+src/data-access/seed-data/generated
+src/data-access/seed-data/scripts/**/*
+*.yml
