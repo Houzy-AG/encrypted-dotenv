@@ -1,6 +1,6 @@
 {
   "name": "encrypted-dotenv",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "This packages uses dotenv parsing method to read the environment variables. It can create a vault where we have multiple environments stored",
   "main": "./lib/lib.js",
   "types": "./lib/lib.d.ts",

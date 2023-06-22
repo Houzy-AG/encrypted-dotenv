@@ -48,6 +48,7 @@ export const encryptEnvFilesToVault = (options: { dotEnvFilesDirectory?: string;
         }
         if (!options.envVaultKeys[environmentName]) {
             console.log(`Skip encrypting file environment: ${environmentName}. Encryption / Decryption key is missing`);
+            continue;
         }
 
         envVaultContent[environmentName] = encryptData({
