@@ -5,14 +5,16 @@ import * as os from 'os';
 export enum MenuOptions {
     EncryptEnvFiles = `1`,
     DecryptEnvFiles = `2`,
-    RotateKeys = `3`,
-    Create = `4`,
-    Exit = `5`,
+    PrintEnvVars = `3`,
+    RotateKeys = `4`,
+    Create = `5`,
+    Exit = `6`,
 }
 
 const menuLabels: Record<MenuOptions, string> = {
     [MenuOptions.EncryptEnvFiles]: 'Encrypt Env Files',
     [MenuOptions.DecryptEnvFiles]: 'Decrypt Env Files',
+    [MenuOptions.PrintEnvVars]: 'Print Env Vars',
     [MenuOptions.RotateKeys]: 'Rotate Vault Keys',
     [MenuOptions.Create]: 'Create Vault',
     [MenuOptions.Exit]: 'Exit',

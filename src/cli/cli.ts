@@ -1,5 +1,6 @@
 import * as process from 'process';
 import * as yargs from 'yargs';
+import { configure } from "../lib";
 import { CommandLineUi, MenuOptions } from './cli-interface';
 import * as createVault from './commands/create-vault.command';
 import * as encryptVault from './commands/encrypt-vault.command';
@@ -27,6 +28,11 @@ const run = async (): Promise<void> => {
                 break;
             case MenuOptions.EncryptEnvFiles:
                 encryptVault.run({ dotEnvFilesDirectory });
+                cli.printSuccess();
+                break;
+            case MenuOptions.PrintEnvVars:
+                configure({ dotEnvFilesDirectory });
+                console.log(process.env);
                 cli.printSuccess();
                 break;
             case MenuOptions.DecryptEnvFiles:

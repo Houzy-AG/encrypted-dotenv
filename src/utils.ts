@@ -16,7 +16,7 @@ export const mergeRecords = (recordsList: Record<string, string>[]): Record<stri
 
     for (const record of recordsList) {
         for (const recordKey in record) {
-            if (isNil(out[recordKey])) {
+            if (isNil(out[recordKey]) || (typeof out[recordKey] === 'string' && !out[recordKey].length)) {
                 out[recordKey] = record[recordKey];
             }
         }
