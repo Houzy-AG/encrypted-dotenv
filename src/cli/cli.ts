@@ -1,11 +1,12 @@
 import * as process from 'process';
 import * as yargs from 'yargs';
-import { configure } from "../lib";
+import { configure } from '../lib';
 import { CommandLineUi, MenuOptions } from './cli-interface';
 import * as createVault from './commands/create-vault.command';
 import * as encryptVault from './commands/encrypt-vault.command';
 import * as decryptVault from './commands/decrypt-vault.command';
 import * as rotateKeys from './commands/rotate-keys.command';
+import * as generateKey from './commands/generate-key.command';
 
 const cli = new CommandLineUi();
 
@@ -28,6 +29,10 @@ const run = async (): Promise<void> => {
                 break;
             case MenuOptions.EncryptEnvFiles:
                 encryptVault.run({ dotEnvFilesDirectory });
+                cli.printSuccess();
+                break;
+            case MenuOptions.GenerateKey:
+                generateKey.run();
                 cli.printSuccess();
                 break;
             case MenuOptions.PrintEnvVars:

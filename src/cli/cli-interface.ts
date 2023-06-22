@@ -6,15 +6,17 @@ export enum MenuOptions {
     EncryptEnvFiles = `1`,
     DecryptEnvFiles = `2`,
     PrintEnvVars = `3`,
-    RotateKeys = `4`,
-    Create = `5`,
-    Exit = `6`,
+    GenerateKey = `4`,
+    RotateKeys = `5`,
+    Create = `6`,
+    Exit = `7`,
 }
 
 const menuLabels: Record<MenuOptions, string> = {
     [MenuOptions.EncryptEnvFiles]: 'Encrypt Env Files',
     [MenuOptions.DecryptEnvFiles]: 'Decrypt Env Files',
     [MenuOptions.PrintEnvVars]: 'Print Env Vars',
+    [MenuOptions.GenerateKey]: 'Generate Key',
     [MenuOptions.RotateKeys]: 'Rotate Vault Keys',
     [MenuOptions.Create]: 'Create Vault',
     [MenuOptions.Exit]: 'Exit',

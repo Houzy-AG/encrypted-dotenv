@@ -46,7 +46,7 @@ const decodeVaultKey = (vaultKey: string): { encryptionIV: string; encryptionKey
     };
 };
 
-const encodeVaultKey = (data: { encryptionIV: string; encryptionKey: string }): string => {
+export const encodeVaultKey = (data: { encryptionIV: string; encryptionKey: string }): string => {
     const keyAsUrl = convertToUrl(`https://env-keys.decription`);
     keyAsUrl.searchParams.set('encryptionIV', data.encryptionIV);
     keyAsUrl.searchParams.set('encryptionKey', data.encryptionKey);
@@ -100,15 +100,18 @@ const encryptionKeyGeneratorOptions = {
     strict: true,
 };
 
+export const generateKey = (): { encryptionKey: string; encryptionIV: string } => ({
+    encryptionKey: passwordGenerator.generate(encryptionKeyGeneratorOptions),
+    encryptionIV: passwordGenerator.generate(encryptionKeyGeneratorOptions),
+});
+
 export const generateKeysForEnvFiles = (options: { dotEnvFilesDirectory?: string }): VaultKeys => {
     const dotEnvFilesPath = findAllDotEnvFiles(options.dotEnvFilesDirectory);
 
     const envVaultKeys: VaultKeys = {};
     for (const { fileName } of dotEnvFilesPath) {
         const environmentName = getEnvironmentNameFromFileName(fileName);
-        const encryptionKey = passwordGenerator.generate(encryptionKeyGeneratorOptions);
-        const encryptionIV = passwordGenerator.generate(encryptionKeyGeneratorOptions);
-        envVaultKeys[environmentName] = { encryptionKey, encryptionIV };
+        envVaultKeys[environmentName] = generateKey();
     }
 
     return envVaultKeys;
