@@ -22,7 +22,7 @@ const menuLabels: Record<MenuOptions, string> = {
     [MenuOptions.Exit]: 'Exit',
 };
 
-export class CommandLineUi {
+export class InteractiveCommandLineUi {
     public async askForMenuOption(): Promise<MenuOptions> {
         const validIds = Object.values(MenuOptions);
         const questions = [

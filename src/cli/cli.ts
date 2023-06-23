@@ -1,61 +1,83 @@
-import * as process from 'process';
+#!/usr/bin/env node
 import * as yargs from 'yargs';
-import { configure } from '../lib';
-import { CommandLineUi, MenuOptions } from './cli-interface';
+import { hideBin } from 'yargs/helpers';
+import * as process from 'process';
+import { configure } from '../core/configure';
+
 import * as createVault from './commands/create-vault.command';
 import * as encryptVault from './commands/encrypt-vault.command';
 import * as decryptVault from './commands/decrypt-vault.command';
 import * as rotateKeys from './commands/rotate-keys.command';
 import * as generateKey from './commands/generate-key.command';
 
-const cli = new CommandLineUi();
-
-const args = yargs.parseSync(process.argv);
-const dotEnvFilesDirectory = (args.dotEnvFilesDirectory as string) || ``;
-
-const run = async (): Promise<void> => {
-    let selectedOption = MenuOptions.Exit;
-    do {
-        selectedOption = await cli.askForMenuOption();
-
-        switch (selectedOption) {
-            case MenuOptions.Create:
-                createVault.run({ dotEnvFilesDirectory });
-                cli.printSuccess();
-                break;
-            case MenuOptions.RotateKeys:
-                rotateKeys.run({ dotEnvFilesDirectory });
-                cli.printSuccess();
-                break;
-            case MenuOptions.EncryptEnvFiles:
-                encryptVault.run({ dotEnvFilesDirectory });
-                cli.printSuccess();
-                break;
-            case MenuOptions.GenerateKey:
-                generateKey.run();
-                cli.printSuccess();
-                break;
-            case MenuOptions.PrintEnvVars:
-                configure({ dotEnvFilesDirectory });
-                console.log(process.env);
-                cli.printSuccess();
-                break;
-            case MenuOptions.DecryptEnvFiles:
-                decryptVault.run({ dotEnvFilesDirectory });
-                cli.printSuccess();
-                break;
-        }
-    } while (selectedOption !== MenuOptions.Exit);
-
-    cli.printByeMessage();
-    process.exit(0);
-};
-
-run().catch((e) => {
-    console.error('GlobalErrorHandler', e);
-    process.exit(1);
+const commonArguments = yargs.positional('dotEnvFilesDirectory', {
+    describe: `Directory where dot env files are placed. It's relative to process.cwd()`,
+    default: ``,
+    type: 'string',
+    desc: `Directory where dot env files are placed. It's relative to process.cwd()`,
+    normalize: true,
 });
 
-process.on('SIGINT', () => {
-    cli.printByeMessage();
-});
+const commonArgumentsBuilder = (): typeof commonArguments => commonArguments;
+
+yargs(hideBin(process.argv))
+    .command({
+        command: `create [dotEnvFilesDirectory]`,
+        describe: `Recreate Encryption Keys, Recreate Encryption Vault using new keys\r\n`,
+        builder: commonArgumentsBuilder,
+        handler: (argv): void => {
+            console.info(`Recreate Encryption Keys, Recreate Encryption Vault using new keys`);
+            createVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
+            console.info(`Done`);
+        },
+    })
+    .command({
+        command: `encrypt [dotEnvFilesDirectory]`,
+        describe: `Encrypt Vault using encryption keys present in process.env | .env |.env.keys\r\n`,
+        builder: commonArgumentsBuilder,
+        handler: (argv): void => {
+            console.info(`Encrypt Vault using encryption keys present in process.env | .env |.env.keys`);
+            encryptVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
+            console.info(`Done`);
+        },
+    })
+    .command({
+        command: `decrypt [dotEnvFilesDirectory]`,
+        describe: `Decrypt Vault using encryption keys present in process.env | .env |.env.keys\r\n`,
+        builder: commonArgumentsBuilder,
+        handler: (argv): void => {
+            console.info(`Encrypt Vault using encryption keys present in process.env | .env |.env.keys`);
+            decryptVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
+            console.info(`Done`);
+        },
+    })
+    .command({
+        command: `rotate-keys [dotEnvFilesDirectory]`,
+        describe: `Rotate Encryption Keys.\r\n Encryption keys can be passed using process.env | .env |.env.keys.\r\n They will be dumped into .env.keys after rotation`,
+        builder: commonArgumentsBuilder,
+        handler: (argv): void => {
+            console.info(`Rotate Encryption Keys`);
+            rotateKeys.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
+            console.info(`Done`);
+        },
+    })
+    .command({
+        command: `print-env-vars [dotEnvFilesDirectory]`,
+        describe: `Prints the environment variables in the current project\r\n`,
+        builder: commonArgumentsBuilder,
+        handler: (argv): void => {
+            configure({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
+            console.log(process.env);
+        },
+    })
+    .command({
+        command: `generate-new-key`,
+        describe: `Generates a new encryption key.\r\n The key can be used for encrypting a possible new environment.\r\n`,
+        handler: (): void => {
+            console.info(`Encryption Key:`);
+            generateKey.run();
+            console.info(`Done`);
+        },
+    })
+    .wrap(120)
+    .parse();
