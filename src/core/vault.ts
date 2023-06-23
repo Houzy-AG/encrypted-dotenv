@@ -6,7 +6,7 @@ import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileNam
 import { VaultKeys } from './vault-keys';
 import { DecodedVault, DecryptedVault } from './vault-types';
 
-const readVaultFromDisk = (options: { dotEnvFilesDirectory?: string }): DecodedVault => {
+export const readVaultFromDisk = (options: { dotEnvFilesDirectory?: string }): DecodedVault => {
     const envFilesDirectory = getEnvFilesDirectory(options.dotEnvFilesDirectory);
     const vaultFilePath = path.resolve(envFilesDirectory, '.env-vault.json');
     if (!fs.existsSync(vaultFilePath)) {

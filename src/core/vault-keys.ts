@@ -34,7 +34,7 @@ export const getVaultKeysFromLocalDotEnv = (dotEnvDirectoryName: string): Record
 
 export type VaultKeys = Record<string, EncryptionDecryptionDetails>;
 
-const decodeVaultKey = (vaultKey: string): { encryptionIV: string; encryptionKey: string } | null => {
+export const decodeVaultKey = (vaultKey: string): { encryptionIV: string; encryptionKey: string } | null => {
     const keyDetails = convertToUrl(`https://env-keys.decription?${decodeURI(vaultKey)}`);
     if (isNil(keyDetails)) {
         return null;
@@ -111,7 +111,9 @@ export const generateKeysForEnvFiles = (options: { dotEnvFilesDirectory?: string
     const envVaultKeys: VaultKeys = {};
     for (const { fileName } of dotEnvFilesPath) {
         const environmentName = getEnvironmentNameFromFileName(fileName);
-        envVaultKeys[environmentName] = generateKey();
+        if (environmentName?.length) {
+            envVaultKeys[environmentName] = generateKey();
+        }
     }
 
     return envVaultKeys;

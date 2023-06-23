@@ -31,4 +31,10 @@ export const findAllDotEnvFiles = (dotEnvFilesDirectory: string): { path: string
         }));
 };
 
-export const getEnvironmentNameFromFileName = (fileName: string): string => fileName.replace('.env.', '').toUpperCase();
+export const getEnvironmentNameFromFileName = (fileName: string): string => {
+    if (!fileName.startsWith('.env.')) {
+        return null;
+    }
+
+    return fileName.replace('.env.', '').toUpperCase();
+};
