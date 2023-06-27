@@ -4,7 +4,7 @@ import { hideBin } from 'yargs/helpers';
 import * as process from 'process';
 import { configure } from '../core/configure';
 
-import * as createVault from './commands/create-vault.command';
+import * as reCreateVault from './commands/re-create-vault.command';
 import * as encryptVault from './commands/encrypt-vault.command';
 import * as decryptVault from './commands/decrypt-vault.command';
 import * as rotateKeys from './commands/rotate-keys.command';
@@ -22,18 +22,18 @@ const commonArgumentsBuilder = (): typeof commonArguments => commonArguments;
 
 yargs(hideBin(process.argv))
     .command({
-        command: `create [dotEnvFilesDirectory]`,
-        describe: `Recreate Encryption Keys, Recreate Encryption Vault using new keys\r\n`,
+        command: `re-create [dotEnvFilesDirectory]`,
+        describe: `Recreates Encryption Keys for '.env.*' files and encrypts them into a new vault\r\n`,
         builder: commonArgumentsBuilder,
         handler: (argv): void => {
             console.info(`Recreate Encryption Keys, Recreate Encryption Vault using new keys`);
-            createVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
+            reCreateVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
             console.info(`Done`);
         },
     })
     .command({
         command: `encrypt [dotEnvFilesDirectory]`,
-        describe: `Encrypt Vault using encryption keys present in process.env | .env |.env.keys\r\n`,
+        describe: `Encrypt Vault using encryption keys present in process.env | .env | .env.keys\r\n`,
         builder: commonArgumentsBuilder,
         handler: (argv): void => {
             console.info(`Encrypt Vault using encryption keys present in process.env | .env |.env.keys`);

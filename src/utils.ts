@@ -1,3 +1,5 @@
+import { isString } from 'lodash';
+
 export const isNil = (value: unknown): boolean => value === null || value === undefined;
 
 export const convertToUrl = (url: string): URL | null => {
@@ -11,13 +13,16 @@ export const convertToUrl = (url: string): URL | null => {
     }
 };
 
-export const mergeRecords = (recordsList: Record<string, string>[]): Record<string, string> => {
-    const out: Record<string, string> = {};
+// Merges all the records into one from left to right. If some values are defined multiple times we override them if they are
+// `null | undefined | ''`.
+export const mergeRecordsWithValues = (recordsList: Record<string, string | undefined>[]): Record<string, string | undefined> => {
+    const out: Record<string, string | undefined> = {};
 
     for (const record of recordsList) {
         for (const recordKey in record) {
-            if (isNil(out[recordKey]) || (typeof out[recordKey] === 'string' && !out[recordKey].length)) {
-                out[recordKey] = record[recordKey];
+            const recordValue = out[recordKey];
+            if (isNil(recordValue) || (isString(recordValue) && !recordValue.length)) {
+                out[recordKey] = recordValue;
             }
         }
     }

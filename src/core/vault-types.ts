@@ -4,7 +4,7 @@
 //      PRODUCTION: <encrypted string>,
 //      ...
 //  }
-export type DecodedVault = Record<string, string>;
+export type EnvVaultJsonData = Record<string, string>;
 
 // It looks something like this
 // {
@@ -23,13 +23,13 @@ export type DecryptedVault = Record<
         decrypted: boolean;
         decryptedStringContent: string;
         encryptedStringContent: string;
-        data: null | DecodedVault;
+        data: null | Record<string, string>;
     }
 >;
 
-export const mapDecryptedVaultToDecodedVault = (vault: DecryptedVault): DecodedVault => {
+export const mapDecryptedVaultToDecodedVault = (vault: DecryptedVault): EnvVaultJsonData => {
     return Object.values(vault).reduce((acc, { environmentName, encryptedStringContent }) => {
         acc[environmentName] = encryptedStringContent;
         return acc;
-    }, {});
+    }, {} as EnvVaultJsonData);
 };

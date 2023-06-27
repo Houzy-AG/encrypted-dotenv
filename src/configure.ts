@@ -5,6 +5,4 @@ import { configure } from './lib';
 const args = yargs.parseSync(process.argv);
 const dotEnvFilesDirectory = (args.dotEnvFilesDirectory as string) || ``;
 
-console.log(dotEnvFilesDirectory);
-
 configure({ dotEnvFilesDirectory });

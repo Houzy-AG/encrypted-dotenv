@@ -1,35 +1,48 @@
 import { isNil } from 'lodash';
 import * as process from 'process';
 import { getEnvironmentVariableFromLocalDotEnvFile } from './file-system';
-import { mergeRecords } from '../utils';
+import { mergeRecordsWithValues } from '../utils';
 import { decryptVault } from './vault';
 import { getVaultKeys } from './vault-keys';
-import { DecodedVault } from './vault-types';
+import { EnvVaultJsonData } from './vault-types';
 
 const getEnvironmentVariablesForCurrentEnvironmentFromVault = (options: {
     dotEnvFilesDirectory?: string;
-    expectedEnvironment: string;
-}): DecodedVault => {
+    currentEnvironment: string;
+}): EnvVaultJsonData => {
     const vaultVariables = decryptVault({ ...options, envVaultKeys: getVaultKeys(options) });
-    const decryptedVaults = Object.values(vaultVariables).filter((vaultData) => vaultData.decrypted);
-    if (!decryptedVaults.length) {
+    const decryptedEnvironments = Object.values(vaultVariables).filter((vaultData) => vaultData.decrypted);
+    if (!decryptedEnvironments.length) {
         console.info(`No environment could be decoded from vault`);
         return {};
     }
 
-    if (decryptedVaults.length > 1) {
-        if (!options.expectedEnvironment?.length) {
-            throw new Error(`Missing process.env.environment and more then one environment was decrypted`);
+    if (decryptedEnvironments.length > 1) {
+        // Since the vault can have multiple environments, and we can also have the decryption keys for more than one environment we have to
+        // specify in this case which environment to use from the vault.
+        if (!options.currentEnvironment?.length) {
+            throw new Error(
+                [
+                    `Missing ENVIRONMENT and more then one environment was decrypted.`,
+                    `If you have multiple decryption keys specified in the current machine please specify which environment from the vault to use ENVIRONMENT={{environmentToUseFromVault}}`,
+                ].join(' '),
+            );
         }
 
-        const envVarsInVault = decryptedVaults.find((vaultData) => vaultData.environmentName === options.expectedEnvironment);
+        // We try to locate the currentEnvironment in the vault and if the current environment is missing we throw an error because the machine
+        // is probably miss configured.
+        const envVarsInVault = decryptedEnvironments.find((vaultData) => vaultData.environmentName === options.currentEnvironment);
         if (isNil(envVarsInVault)) {
-            throw new Error(`Missing env vars for environment: ${options.expectedEnvironment} in vault`);
+            throw new Error(
+                [
+                    `Vault could not decrypt the ENVIRONMENT=${options.currentEnvironment}. Please provide decryption key for the vault for ENVIRONMENT=${options.currentEnvironment}`,
+                ].join(' '),
+            );
         }
-        return envVarsInVault.data;
+        return envVarsInVault.data ?? {};
     }
 
-    return decryptedVaults[0].data;
+    return decryptedEnvironments[0].data ?? {};
 };
 
 // Return the env vars for the current environment by merging the process.env with the local .env file and with the vault variables for the
@@ -41,10 +54,10 @@ export const configure = (options?: { dotEnvFilesDirectory?: string }): void => 
     const localDotEnvVars = getEnvironmentVariableFromLocalDotEnvFile(options?.dotEnvFilesDirectory);
     const expectedEnvironment = (process.env.ENVIRONMENT ?? localDotEnvVars.ENVIRONMENT ?? ``).toUpperCase();
 
-    const correctEnvVars = mergeRecords([
+    const correctEnvVars = mergeRecordsWithValues([
         { ...process.env },
         localDotEnvVars,
-        getEnvironmentVariablesForCurrentEnvironmentFromVault({ ...options, expectedEnvironment }),
+        getEnvironmentVariablesForCurrentEnvironmentFromVault({ ...options, currentEnvironment: expectedEnvironment }),
     ]);
     for (const key in correctEnvVars) {
         process.env[key] = correctEnvVars[key];

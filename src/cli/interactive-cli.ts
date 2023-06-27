@@ -2,8 +2,8 @@
 import * as process from 'process';
 import * as yargs from 'yargs';
 import { configure } from '../lib';
-import { InteractiveCommandLineUi, MenuOptions } from './interactive-command-line-ui';
-import * as createVault from './commands/create-vault.command';
+import { InteractiveCommandLineUi, MenuOption } from './interactive-command-line-ui';
+import * as reCreateVault from './commands/re-create-vault.command';
 import * as encryptVault from './commands/encrypt-vault.command';
 import * as decryptVault from './commands/decrypt-vault.command';
 import * as rotateKeys from './commands/rotate-keys.command';
@@ -15,38 +15,38 @@ const args = yargs.parseSync(process.argv);
 const dotEnvFilesDirectory = (args.dotEnvFilesDirectory as string) || ``;
 
 const run = async (): Promise<void> => {
-    let selectedOption = MenuOptions.Exit;
+    let selectedOption: MenuOption | null = MenuOption.Exit;
     do {
         selectedOption = await interactiveCli.askForMenuOption();
 
         switch (selectedOption) {
-            case MenuOptions.Create:
-                createVault.run({ dotEnvFilesDirectory });
+            case MenuOption.Recreate:
+                reCreateVault.run({ dotEnvFilesDirectory });
                 interactiveCli.printSuccess();
                 break;
-            case MenuOptions.RotateKeys:
+            case MenuOption.RotateKeys:
                 rotateKeys.run({ dotEnvFilesDirectory });
                 interactiveCli.printSuccess();
                 break;
-            case MenuOptions.EncryptEnvFiles:
+            case MenuOption.EncryptEnvFiles:
                 encryptVault.run({ dotEnvFilesDirectory });
                 interactiveCli.printSuccess();
                 break;
-            case MenuOptions.GenerateKey:
+            case MenuOption.GenerateKey:
                 generateKey.run();
                 interactiveCli.printSuccess();
                 break;
-            case MenuOptions.PrintEnvVars:
+            case MenuOption.PrintEnvVars:
                 configure({ dotEnvFilesDirectory });
                 console.log(process.env);
                 interactiveCli.printSuccess();
                 break;
-            case MenuOptions.DecryptEnvFiles:
+            case MenuOption.DecryptEnvFiles:
                 decryptVault.run({ dotEnvFilesDirectory });
                 interactiveCli.printSuccess();
                 break;
         }
-    } while (selectedOption !== MenuOptions.Exit);
+    } while (selectedOption !== MenuOption.Exit);
 
     interactiveCli.printByeMessage();
     process.exit(0);

@@ -11,21 +11,21 @@ module.exports = {
         node: true,
         jest: true,
     },
-    ignorePatterns: ['**/seed-data/generated/*.ts', '**/data-access/migrations/*.ts'],
+    ignorePatterns: ['**/seed-data/generated/*.ts', '**/data-access/migrations/*.ts', '**/*.spec.ts'],
     rules: {
-        'prefer-const': 'warn',
+        'prefer-const': 'error',
         'import/no-duplicates': 'error',
         'import/no-absolute-path': 'error',
         '@typescript-eslint/naming-convention': [
-            'warn',
+            'error',
             {
                 selector: 'enumMember',
                 format: ['PascalCase'],
             },
         ],
-        '@typescript-eslint/explicit-function-return-type': 'warn',
-        '@typescript-eslint/no-explicit-any': 'warn',
-        '@typescript-eslint/no-empty-function': 'warn',
+        '@typescript-eslint/explicit-function-return-type': 'error',
+        '@typescript-eslint/no-explicit-any': 'error',
+        '@typescript-eslint/no-empty-function': 'error',
         '@typescript-eslint/no-unused-vars': [
             'error',
             {
@@ -34,7 +34,7 @@ module.exports = {
             },
         ],
         '@typescript-eslint/no-inferrable-types': [
-            'warn',
+            'error',
             {
                 // We don't ignore function parameters for inferable types because in this case it doesn't affect us.
                 ignoreParameters: false,
@@ -43,7 +43,7 @@ module.exports = {
                 ignoreProperties: true,
             },
         ],
-        '@typescript-eslint/explicit-module-boundary-types': 'warn',
+        '@typescript-eslint/explicit-module-boundary-types': 'error',
         'unused-imports/no-unused-imports': 'error',
     },
 };

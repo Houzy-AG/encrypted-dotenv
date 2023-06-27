@@ -10,6 +10,8 @@ interface EncryptDecryptInput extends EncryptionDecryptionDetails {
 }
 
 const getKeyAndIv = (encryptionKey: string, encryptionIV: string): { encryptionKeySha: string; encryptionIVSha: string } => ({
+    // We use sha512 and substring because encryptionKey / encryptionIV have specific lengths, and we basically want to let the user pass
+    // any random string as encryptionKey / encryptionIV without trying to find the perfect length for them.
     encryptionKeySha: createHash('sha512').update(encryptionKey).digest('hex').substring(0, 32),
     encryptionIVSha: createHash('sha512').update(encryptionIV).digest('hex').substring(0, 16),
 });

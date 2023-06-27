@@ -10,8 +10,8 @@
         "baseUrl": "./src",
         "sourceMap": true,
         "incremental": true,
-        "noImplicitAny": false,
-        "strictNullChecks": false,
+        "noImplicitAny": true,
+        "strictNullChecks": true,
         "allowSyntheticDefaultImports": true
     },
     "include": [
@@ -19,6 +19,7 @@
     ],
     "exclude": [
         "node_modules",
+        "lib",
         "src/**/*.spec.ts"
     ]
 }

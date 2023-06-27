@@ -1,26 +1,29 @@
 import { parse } from 'dotenv';
 import * as fs from 'fs';
 import * as passwordGenerator from 'generate-password';
-import { isNil } from 'lodash';
+import { isNil, isString } from 'lodash';
 import * as os from 'os';
 import * as path from 'path';
 import * as process from 'process';
 import { EncryptionDecryptionDetails } from './encryption';
 import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName, getEnvironmentVariableFromLocalDotEnvFile } from './file-system';
-import { convertToUrl, mergeRecords } from '../utils';
+import { convertToUrl, mergeRecordsWithValues } from '../utils';
 
 export const VAULT_DECRYPTION_KEY_PREFIX = `VAULT_KEY_`;
 
 export const getVaultKeysFromProcessEnv = (): Record<string, string> => {
     return Object.keys(process.env)
         .filter((key) => key.startsWith(VAULT_DECRYPTION_KEY_PREFIX))
-        .reduce((acc, vaultKeyName) => {
-            acc[vaultKeyName] = process.env[vaultKeyName];
+        .reduce((acc: Record<string, string>, vaultKeyName: string) => {
+            const vaultKeyValue = process.env[vaultKeyName];
+            if (isString(vaultKeyValue)) {
+                acc[vaultKeyName] = vaultKeyValue;
+            }
             return acc;
-        }, {});
+        }, {} as Record<string, string>);
 };
 
-export const getVaultKeysFromLocalDotEnv = (dotEnvDirectoryName: string): Record<string, string> => {
+export const getVaultKeysFromLocalDotEnv = (dotEnvDirectoryName?: string): Record<string, string> => {
     const localDotEnv = getEnvironmentVariableFromLocalDotEnvFile(dotEnvDirectoryName);
 
     const out: Record<string, string> = {};
@@ -32,22 +35,27 @@ export const getVaultKeysFromLocalDotEnv = (dotEnvDirectoryName: string): Record
     return out;
 };
 
-export type VaultKeys = Record<string, EncryptionDecryptionDetails>;
+export type VaultKeys = Record<string, EncryptionDecryptionDetails | null>;
 
-export const decodeVaultKey = (vaultKey: string): { encryptionIV: string; encryptionKey: string } | null => {
+// We expect the vault keys to be encoded uri params because we do not want to invent our own encoding for them and we do not want to
+// restrict specific characters.
+export const decodeVaultKey = (vaultKey: string | undefined): { encryptionIV: string; encryptionKey: string } | null => {
+    if (isNil(vaultKey)) {
+        return null;
+    }
     const keyDetails = convertToUrl(`https://env-keys.decription?${decodeURI(vaultKey)}`);
-    if (isNil(keyDetails)) {
+    if (isNil(keyDetails) || !keyDetails.searchParams.get('encryptionIV')?.length || !keyDetails.searchParams.get('encryptionKey')) {
         return null;
     }
 
     return {
-        encryptionIV: keyDetails.searchParams.get('encryptionIV'),
-        encryptionKey: keyDetails.searchParams.get('encryptionKey'),
+        encryptionIV: keyDetails.searchParams.get('encryptionIV') as unknown as string,
+        encryptionKey: keyDetails.searchParams.get('encryptionKey') as unknown as string,
     };
 };
 
 export const encodeVaultKey = (data: { encryptionIV: string; encryptionKey: string }): string => {
-    const keyAsUrl = convertToUrl(`https://env-keys.decription`);
+    const keyAsUrl = convertToUrl(`https://env-keys.decription`) as unknown as URL;
     keyAsUrl.searchParams.set('encryptionIV', data.encryptionIV);
     keyAsUrl.searchParams.set('encryptionKey', data.encryptionKey);
     return `${encodeURI(keyAsUrl.search.substring(1, keyAsUrl.search.length))}`;
@@ -62,17 +70,20 @@ export const encodeVaultKey = (data: { encryptionIV: string; encryptionKey: stri
 export const getVaultKeys = (options: { dotEnvFilesDirectory?: string }): VaultKeys => {
     const envFilesDirectory = getEnvFilesDirectory(options.dotEnvFilesDirectory);
     const envKeysFilePath = path.resolve(envFilesDirectory, '.env.keys');
-    let encryptionDecryptionKeys: Record<string, string> = mergeRecords([
+    let encryptionDecryptionKeys: Record<string, string | undefined> = mergeRecordsWithValues([
         getVaultKeysFromProcessEnv(),
         getVaultKeysFromLocalDotEnv(options?.dotEnvFilesDirectory),
     ]);
 
-    for (const vaultKeyName in Object.keys(process.env).filter((key) => key.startsWith('ENVIRONMENT_VARIABLE_VOLT_KEY_'))) {
-        encryptionDecryptionKeys[vaultKeyName] = process.env[vaultKeyName];
+    for (const vaultKeyName in Object.keys(process.env).filter((key) => key.startsWith(VAULT_DECRYPTION_KEY_PREFIX))) {
+        const vaultKeyValue = process.env[vaultKeyName];
+        if (isString(vaultKeyValue)) {
+            encryptionDecryptionKeys[vaultKeyName] = vaultKeyValue;
+        }
     }
 
     if (fs.existsSync(envKeysFilePath)) {
-        encryptionDecryptionKeys = mergeRecords([encryptionDecryptionKeys, parse(fs.readFileSync(envKeysFilePath))]);
+        encryptionDecryptionKeys = mergeRecordsWithValues([encryptionDecryptionKeys, parse(fs.readFileSync(envKeysFilePath))]);
     }
 
     const vaultKeys: VaultKeys = {};
@@ -119,10 +130,12 @@ export const generateKeysForEnvFiles = (options: { dotEnvFilesDirectory?: string
     return envVaultKeys;
 };
 
-export const writeVaultKeysToDisk = (dotEnvFilesDirectory: string, vaultKeys: VaultKeys): void => {
+export const writeVaultKeysToDisk = (dotEnvFilesDirectory: string | undefined, vaultKeys: VaultKeys): void => {
     const vaultKeysList: string[] = [];
     for (const [environmentName, vaultKey] of Object.entries(vaultKeys)) {
-        vaultKeysList.push(`${VAULT_DECRYPTION_KEY_PREFIX}${environmentName}=${encodeVaultKey(vaultKey)}`);
+        if (!isNil(vaultKey)) {
+            vaultKeysList.push(`${VAULT_DECRYPTION_KEY_PREFIX}${environmentName}=${encodeVaultKey(vaultKey)}`);
+        }
     }
     const envFilesDirectory = getEnvFilesDirectory(dotEnvFilesDirectory);
     fs.writeFileSync(path.join(envFilesDirectory, '.env.keys'), vaultKeysList.join(os.EOL));

@@ -5,7 +5,7 @@ import { decryptVault, encryptEnvFilesToVault, readVaultFromDisk, writeEnvsToDis
 import * as vaultDetails from './vault';
 import * as fileSystemDetails from './file-system';
 import { decodeVaultKey } from './vault-keys';
-import { DecodedVault } from './vault-types';
+import { EnvVaultJsonData } from './vault-types';
 
 describe('readVaultFromDisk', () => {
     beforeEach(() => {
@@ -58,7 +58,7 @@ describe('writeVaultToDisk', () => {
         jest.spyOn(fs, 'existsSync').mockReturnValueOnce(true);
         jest.spyOn(path, 'join').mockReturnValueOnce('/path/to/env/files/.env-vault.json');
 
-        const envVaultContent: DecodedVault = { key: 'value' };
+        const envVaultContent: EnvVaultJsonData = { key: 'value' };
         writeVaultToDisk('/path/to/env/files', envVaultContent);
 
         expect(fs.writeFileSync).toHaveBeenCalledTimes(1);

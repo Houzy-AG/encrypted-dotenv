@@ -68,12 +68,6 @@ test.sql
 .project
 .vscode
 
-src/tools/database-seed-runner/**/*.js
-src/tools/database-seed-runner/**/*.js.map
-src/tools/database-seed-runner/**/*.d.ts
-src/tools/database-seed-runner/tsconfig.tsbuildinfo
-houzy-database-seed-runner-**/*
-
 # Temporary folder for preview environment
 dockerrun
 
