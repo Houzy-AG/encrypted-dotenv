@@ -51,10 +51,9 @@ export const encryptEnvFilesToVault = (options: { dotEnvFilesDirectory?: string;
         }
         const vaultKey = options.envVaultKeys[environmentName];
         if (!vaultKey) {
-            console.log(`Skip encrypting file environment: ${environmentName}. Encryption / Decryption key is missing`);
             continue;
         }
-
+        console.log(`Environment: ${environmentName}. Encrypted successfully`);
         envVaultContent[environmentName] = encryptData({
             data: fs.readFileSync(path).toString('utf8'),
             ...vaultKey,
@@ -105,10 +104,10 @@ export const decryptVault = (options: { dotEnvFilesDirectory?: string; envVaultK
         const vaultKey = options.envVaultKeys[environmentName];
 
         if (!vaultKey) {
-            console.log(`Skip overriding environment: ${environmentName}. Encryption / Decryption key is missing`);
             continue;
         }
 
+        console.log(`Environment: ${environmentName}. Decrypted successfully`);
         const decryptedEnvVars = decryptData({
             data: envVaultContent[environmentName],
             ...vaultKey,
