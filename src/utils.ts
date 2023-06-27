@@ -22,7 +22,7 @@ export const mergeRecordsWithValues = (recordsList: Record<string, string | unde
         for (const recordKey in record) {
             const recordValue = out[recordKey];
             if (isNil(recordValue) || (isString(recordValue) && !recordValue.length)) {
-                out[recordKey] = recordValue;
+                out[recordKey] = record[recordKey];
             }
         }
     }
