@@ -31,7 +31,7 @@ export class InteractiveCommandLineUi {
                 type: 'rawlist',
                 message: 'Chose option',
                 choices: Object.values(menuLabels),
-                validate: (value: unknown): boolean | string => {
+                validate: (value: string): boolean | string => {
                     if (validIds.includes(value as MenuOption)) {
                         return true;
                     } else {

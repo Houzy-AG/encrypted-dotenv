@@ -1,6 +1,6 @@
-import { isString } from 'lodash';
+export const isNil = (value: unknown): value is null | undefined => value === null || value === undefined;
 
-export const isNil = (value: unknown): boolean => value === null || value === undefined;
+export const isString = (value: unknown): value is string => typeof value === 'string';
 
 export const convertToUrl = (url: string): URL | null => {
     if (isNil(url)) {

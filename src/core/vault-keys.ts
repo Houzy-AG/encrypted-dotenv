@@ -1,13 +1,12 @@
 import { parse } from 'dotenv';
 import * as fs from 'fs';
 import * as passwordGenerator from 'generate-password';
-import { isNil, isString } from 'lodash';
 import * as os from 'os';
 import * as path from 'path';
 import * as process from 'process';
 import { EncryptionDecryptionDetails } from './encryption';
 import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName, getEnvironmentVariableFromLocalDotEnvFile } from './file-system';
-import { convertToUrl, mergeRecordsWithValues } from '../utils';
+import { convertToUrl, isNil, isString, mergeRecordsWithValues } from '../utils';
 
 export const VAULT_DECRYPTION_KEY_PREFIX = `VAULT_KEY_`;
 
@@ -44,17 +43,17 @@ export const decodeVaultKey = (vaultKey: string | undefined): { encryptionIV: st
         return null;
     }
     const keyDetails = convertToUrl(`https://env-keys.decription?${decodeURI(vaultKey)}`);
-    if (isNil(keyDetails) || !keyDetails.searchParams.get('encryptionIV')?.length || !keyDetails.searchParams.get('encryptionKey')) {
+    const encryptionIV = keyDetails?.searchParams.get('encryptionIV');
+    const encryptionKey = keyDetails?.searchParams.get('encryptionKey');
+
+    if (!isString(encryptionIV) || !encryptionIV.length || !isString(encryptionKey) || !encryptionKey.length) {
         return null;
     }
-
-    return {
-        encryptionIV: keyDetails.searchParams.get('encryptionIV') as unknown as string,
-        encryptionKey: keyDetails.searchParams.get('encryptionKey') as unknown as string,
-    };
+    return { encryptionIV, encryptionKey };
 };
 
 export const encodeVaultKey = (data: { encryptionIV: string; encryptionKey: string }): string => {
+    // In this case we type force because we know 100% that this url is valid.
     const keyAsUrl = convertToUrl(`https://env-keys.decription`) as unknown as URL;
     keyAsUrl.searchParams.set('encryptionIV', data.encryptionIV);
     keyAsUrl.searchParams.set('encryptionKey', data.encryptionKey);

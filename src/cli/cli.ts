@@ -36,24 +36,24 @@ yargs(hideBin(process.argv))
         describe: `Encrypt Vault using encryption keys present in process.env | .env | .env.keys\r\n`,
         builder: commonArgumentsBuilder,
         handler: (argv): void => {
-            console.info(`Encrypt Vault using encryption keys present in process.env | .env |.env.keys`);
+            console.info(`Encrypt Vault using encryption keys present in process.env | .env | .env.keys`);
             encryptVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
             console.info(`Done`);
         },
     })
     .command({
         command: `decrypt [dotEnvFilesDirectory]`,
-        describe: `Decrypt Vault using encryption keys present in process.env | .env |.env.keys\r\n`,
+        describe: `Decrypt Vault using encryption keys present in process.env | .env | .env.keys\r\n`,
         builder: commonArgumentsBuilder,
         handler: (argv): void => {
-            console.info(`Encrypt Vault using encryption keys present in process.env | .env |.env.keys`);
+            console.info(`Encrypt Vault using encryption keys present in process.env | .env | .env.keys`);
             decryptVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
             console.info(`Done`);
         },
     })
     .command({
         command: `rotate-keys [dotEnvFilesDirectory]`,
-        describe: `Rotate Encryption Keys.\r\n Encryption keys can be passed using process.env | .env |.env.keys.\r\n They will be dumped into .env.keys after rotation`,
+        describe: `Rotate Encryption Keys.\r\n Encryption keys can be passed using process.env | .env | .env.keys.\r\n They will be dumped into .env.keys after rotation`,
         builder: commonArgumentsBuilder,
         handler: (argv): void => {
             console.info(`Rotate Encryption Keys`);

@@ -1,7 +1,6 @@
-import { isNil } from 'lodash';
 import * as process from 'process';
 import { getEnvironmentVariableFromLocalDotEnvFile } from './file-system';
-import { mergeRecordsWithValues } from '../utils';
+import { isNil, mergeRecordsWithValues } from '../utils';
 import { decryptVault } from './vault';
 import { getVaultKeys } from './vault-keys';
 import { EnvVaultJsonData } from './vault-types';
@@ -30,12 +29,13 @@ const getEnvironmentVariablesForCurrentEnvironmentFromVault = (options: {
         }
 
         // We try to locate the currentEnvironment in the vault and if the current environment is missing we throw an error because the machine
-        // is probably miss configured.
+        // is probably missconfigured.
         const envVarsInVault = decryptedEnvironments.find((vaultData) => vaultData.environmentName === options.currentEnvironment);
         if (isNil(envVarsInVault)) {
             throw new Error(
                 [
-                    `Vault could not decrypt the ENVIRONMENT=${options.currentEnvironment}. Please provide decryption key for the vault for ENVIRONMENT=${options.currentEnvironment}`,
+                    `Vault could not decrypt the ENVIRONMENT=${options.currentEnvironment}.`,
+                    `Please provide decryption key for the vault for ENVIRONMENT=${options.currentEnvironment}`,
                 ].join(' '),
             );
         }
