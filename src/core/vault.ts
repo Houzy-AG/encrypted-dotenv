@@ -16,7 +16,7 @@ export const readVaultFromDisk = (options: { dotEnvFilesDirectory?: string }): E
 
     const vaultFileContent = fs.readFileSync(vaultFilePath).toString('utf8');
     try {
-        return JSON.parse(vaultFileContent);
+        return JSON.parse(vaultFileContent) as EnvVaultJsonData;
     } catch (e) {
         console.error(`Vault content could not be parsed`, e);
         return {};

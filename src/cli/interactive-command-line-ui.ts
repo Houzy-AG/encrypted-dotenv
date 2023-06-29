@@ -32,7 +32,7 @@ export class InteractiveCommandLineUi {
                 message: 'Chose option',
                 choices: Object.values(menuLabels),
                 validate: (value: string): boolean | string => {
-                    if (validIds.includes(value as MenuOption)) {
+                    if (validIds.includes(value)) {
                         return true;
                     } else {
                         return 'Please select one of the options';

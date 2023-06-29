@@ -29,7 +29,7 @@ const getEnvironmentVariablesForCurrentEnvironmentFromVault = (options: {
         }
 
         // We try to locate the currentEnvironment in the vault and if the current environment is missing we throw an error because the machine
-        // is probably missconfigured.
+        // is probably misconfigured.
         const envVarsInVault = decryptedEnvironments.find((vaultData) => vaultData.environmentName === options.currentEnvironment);
         if (isNil(envVarsInVault)) {
             throw new Error(
