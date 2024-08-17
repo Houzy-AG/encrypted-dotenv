@@ -1,13 +1,17 @@
 import * as fs from 'fs';
+import { omit, pick } from 'lodash';
 import * as path from 'path';
 import { parse } from 'dotenv';
+import { isNil } from '../utils';
 import { decryptData, encryptData } from './encryption';
 import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName } from './file-system';
-import { VaultKeys } from './vault-keys';
+import { DefaultArguments } from './globals/default-arguments';
+import { EncryptedDotEnvErrorCodes, failWithEncryptedFotEnvError } from './errors/encrypted-dot-env-error';
+import { getVaultKeys, VaultKeys } from './vault-keys';
 import { EnvVaultJsonData, DecryptedVault } from './vault-types';
 
-export const readVaultFromDisk = (options: { dotEnvFilesDirectory?: string }): EnvVaultJsonData => {
-    const envFilesDirectory = getEnvFilesDirectory(options.dotEnvFilesDirectory);
+export const readVaultFromDisk = (options: DefaultArguments): EnvVaultJsonData => {
+    const envFilesDirectory = getEnvFilesDirectory(options);
     const vaultFilePath = path.resolve(envFilesDirectory, '.env-vault.json');
     if (!fs.existsSync(vaultFilePath)) {
         console.info(`File .env-vault.json does not exist. Vault considered as empty`);
@@ -23,26 +27,23 @@ export const readVaultFromDisk = (options: { dotEnvFilesDirectory?: string }): E
     }
 };
 
-export const writeVaultToDisk = (dotEnvFilesDirectory: string | undefined, envVaultContent: EnvVaultJsonData): void => {
-    const envFilesDirectory = getEnvFilesDirectory(dotEnvFilesDirectory);
-    fs.writeFileSync(path.join(envFilesDirectory, '.env-vault.json'), JSON.stringify(envVaultContent, null, 4));
+export const writeVaultToDisk = (options: DefaultArguments & { envVaultContent: EnvVaultJsonData }): void => {
+    const envFilesDirectory = getEnvFilesDirectory(options);
+    fs.writeFileSync(path.join(envFilesDirectory, '.env-vault.json'), JSON.stringify(options.envVaultContent, null, 4));
 };
 
-export const writeEnvsToDisk = (
-    dotEnvFilesDirectory: string | undefined,
-    files: { environmentName: string; decryptedStringContent: string }[],
-): void => {
-    const envFilesDirectory = getEnvFilesDirectory(dotEnvFilesDirectory);
+export const writeEnvsToDisk = (options: DefaultArguments & { files: { environmentName: string; decryptedStringContent: string }[] }): void => {
+    const envFilesDirectory = getEnvFilesDirectory(options);
 
-    for (const { environmentName, decryptedStringContent } of files) {
+    for (const { environmentName, decryptedStringContent } of options.files) {
         fs.writeFileSync(path.join(envFilesDirectory, `.env.${environmentName.toLowerCase()}`), decryptedStringContent);
     }
 };
 
-export const encryptEnvFilesToVault = (options: { dotEnvFilesDirectory?: string; envVaultKeys: VaultKeys }): EnvVaultJsonData => {
+export const encryptEnvFilesToVault = (options: DefaultArguments & { envVaultKeys: VaultKeys }): EnvVaultJsonData => {
     const envVaultContent = readVaultFromDisk(options);
 
-    const dotEnvFilesPath = findAllDotEnvFiles(options.dotEnvFilesDirectory);
+    const dotEnvFilesPath = findAllDotEnvFiles(options);
 
     for (const { path, fileName } of dotEnvFilesPath) {
         const environmentName = getEnvironmentNameFromFileName(fileName);
@@ -53,7 +54,6 @@ export const encryptEnvFilesToVault = (options: { dotEnvFilesDirectory?: string;
         if (!vaultKey) {
             continue;
         }
-        console.log(`Environment: ${environmentName}. Encrypted successfully`);
         envVaultContent[environmentName] = encryptData({
             data: fs.readFileSync(path).toString('utf8'),
             ...vaultKey,
@@ -63,12 +63,13 @@ export const encryptEnvFilesToVault = (options: { dotEnvFilesDirectory?: string;
     return envVaultContent;
 };
 
-export const reEncryptCurrentVaultWithKeys = (options: {
-    dotEnvFilesDirectory?: string;
-    currentVaultKeys: VaultKeys;
-    newVaultKeys: VaultKeys;
-}): { envVaultKeys: VaultKeys; vaultContent: DecryptedVault } => {
-    const currentVault = decryptVault({ dotEnvFilesDirectory: options.dotEnvFilesDirectory, envVaultKeys: options.currentVaultKeys });
+export const reEncryptCurrentVaultWithKeys = (
+    options: DefaultArguments & {
+        currentVaultKeys: VaultKeys;
+        newVaultKeys: VaultKeys;
+    },
+): { envVaultKeys: VaultKeys; vaultContent: DecryptedVault } => {
+    const currentVault = decryptVault({ ...omit(options, [`currentVaultKeys`, `newVaultKeys`]), envVaultKeys: options.currentVaultKeys });
 
     const vaultContent = { ...currentVault };
     const envVaultKeys = { ...options.currentVaultKeys };
@@ -88,7 +89,7 @@ export const reEncryptCurrentVaultWithKeys = (options: {
     return { envVaultKeys, vaultContent };
 };
 
-export const decryptVault = (options: { dotEnvFilesDirectory?: string; envVaultKeys: VaultKeys }): DecryptedVault => {
+export const decryptVault = (options: DefaultArguments & { envVaultKeys: VaultKeys }): DecryptedVault => {
     const envVaultContent = readVaultFromDisk(options);
 
     const envVaultContentDecrypted: DecryptedVault = {};
@@ -117,4 +118,46 @@ export const decryptVault = (options: { dotEnvFilesDirectory?: string; envVaultK
         envVaultContentDecrypted[environmentName].decrypted = true;
     }
     return envVaultContentDecrypted;
+};
+
+export const decryptCurrentActiveEnvironment = (options: DefaultArguments & { currentEnvironment?: string }): EnvVaultJsonData => {
+    const vaultKeys = getVaultKeys(options);
+    let currentActiveEnvironmentName = options.currentEnvironment;
+    if (!Object.keys(vaultKeys).length && !currentActiveEnvironmentName?.length) {
+        // There are no vault keys and there is no environment set so we do not need to decrypt anything.
+        return {};
+    }
+
+    if (!currentActiveEnvironmentName?.length) {
+        if (Object.keys(vaultKeys).length > 1) {
+            failWithEncryptedFotEnvError({
+                message: [
+                    `Missing ENVIRONMENT and more then one environment was decrypted.`,
+                    `If you have multiple decryption keys specified in the current machine please specify which environment from the vault to use ENVIRONMENT={{environmentToUseFromVault}}`,
+                ].join(' '),
+                errorCode: EncryptedDotEnvErrorCodes.FAILED_TO_IDENTIFY_CURRENT_ENVIRONMENT_MULTIPLE_VAULT_KEYS,
+            });
+        }
+        currentActiveEnvironmentName = Object.keys(vaultKeys)[0];
+    }
+
+    if (!vaultKeys?.[currentActiveEnvironmentName]) {
+        failWithEncryptedFotEnvError({
+            message: [
+                `Missing decryption key for ENVIRONMENT: "${currentActiveEnvironmentName}"`,
+                `If you have multiple decryption keys specified in the current machine please specify which environment from the vault to use ENVIRONMENT={{environmentToUseFromVault}}`,
+            ].join(' '),
+            errorCode: EncryptedDotEnvErrorCodes.FAILED_TO_DECRYPT_ENVIRONMENT_MISSING_DECRYPTION,
+        });
+    }
+    const vaultVariables = decryptVault({ ...options, envVaultKeys: pick(vaultKeys, currentActiveEnvironmentName) });
+    const decryptedEnvironments = Object.values(vaultVariables).filter((vaultData) => vaultData.decrypted);
+    if (!decryptedEnvironments.length) {
+        failWithEncryptedFotEnvError({
+            message: [`Failed to decrypt ENVIRONMENT: "${currentActiveEnvironmentName}".`, `Check your decryption key`].join(' '),
+            errorCode: EncryptedDotEnvErrorCodes.FAILED_TO_DECRYPT_ENVIRONMENT_INVALID_DECRYPTION_KEY,
+        });
+    }
+
+    return decryptedEnvironments[0].data ?? {};
 };

@@ -1,11 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as process from 'process';
+import { defaultTestLogger } from './logger/encrypted-env-logger';
+import { setupProcessEnvForTest } from './test-utils/setupProcessEnvForTest';
 import { decryptVault, encryptEnvFilesToVault, readVaultFromDisk, writeEnvsToDisk, writeVaultToDisk } from './vault';
 import * as vaultDetails from './vault';
 import * as fileSystemDetails from './file-system';
 import { decodeVaultKey } from './vault-keys';
 import { EnvVaultJsonData } from './vault-types';
+
+setupProcessEnvForTest();
 
 describe('readVaultFromDisk', () => {
     beforeEach(() => {
@@ -19,9 +23,7 @@ describe('readVaultFromDisk', () => {
     });
 
     it('should return an empty object if .env-vault.json does not exist', () => {
-        jest.spyOn(fs, 'existsSync').mockReturnValueOnce(false);
-
-        const result = readVaultFromDisk({ dotEnvFilesDirectory: '/path/to/env/files' });
+        const result = readVaultFromDisk({ dotEnvFilesDirectory: '/path/to/env/files', logger: defaultTestLogger });
 
         expect(result).toEqual({});
     });
@@ -30,7 +32,7 @@ describe('readVaultFromDisk', () => {
         jest.spyOn(fs, 'existsSync').mockReturnValueOnce(true);
         jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(JSON.stringify({ key: 'value' }));
 
-        const result = readVaultFromDisk({ dotEnvFilesDirectory: '/path/to/env/files' });
+        const result = readVaultFromDisk({ dotEnvFilesDirectory: '/path/to/env/files', logger: defaultTestLogger });
 
         expect(result).toEqual({ key: 'value' });
     });
@@ -39,7 +41,7 @@ describe('readVaultFromDisk', () => {
         jest.spyOn(fs, 'existsSync').mockReturnValueOnce(true);
         jest.spyOn(fs, 'readFileSync').mockReturnValueOnce('invalid JSON');
 
-        const result = readVaultFromDisk({ dotEnvFilesDirectory: '/path/to/env/files' });
+        const result = readVaultFromDisk({ dotEnvFilesDirectory: '/path/to/env/files', logger: defaultTestLogger });
 
         expect(result).toEqual({});
     });
@@ -59,7 +61,7 @@ describe('writeVaultToDisk', () => {
         jest.spyOn(path, 'join').mockReturnValueOnce('/path/to/env/files/.env-vault.json');
 
         const envVaultContent: EnvVaultJsonData = { key: 'value' };
-        writeVaultToDisk('/path/to/env/files', envVaultContent);
+        writeVaultToDisk({ dotEnvFilesDirectory: '/path/to/env/files', logger: defaultTestLogger, envVaultContent });
 
         expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
         expect(fs.writeFileSync).toHaveBeenCalledWith('/path/to/env/files/.env-vault.json', JSON.stringify(envVaultContent, null, 4));
@@ -83,7 +85,7 @@ describe('writeEnvsToDisk', () => {
             { environmentName: 'PROD', decryptedStringContent: 'PROD_CONTENT' },
         ];
 
-        writeEnvsToDisk(dotEnvFilesDirectory, files);
+        writeEnvsToDisk({ dotEnvFilesDirectory: dotEnvFilesDirectory, logger: defaultTestLogger, files });
 
         expect(fs.writeFileSync).toHaveBeenCalledTimes(2);
 
@@ -109,6 +111,7 @@ describe('encryptEnvFilesToVault', () => {
 
         const content = encryptEnvFilesToVault({
             dotEnvFilesDirectory: ``,
+            logger: defaultTestLogger,
             envVaultKeys: {
                 LOCAL: testVaultKeys,
             },
@@ -122,6 +125,7 @@ describe('encryptEnvFilesToVault', () => {
 
         const content = decryptVault({
             dotEnvFilesDirectory: ``,
+            logger: defaultTestLogger,
             envVaultKeys: {
                 LOCAL: testVaultKeys,
             },

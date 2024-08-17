@@ -3,6 +3,7 @@ import * as yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import * as process from 'process';
 import { configure } from '../core/configure';
+import { defaultLogger } from '../core/logger/encrypted-env-logger';
 
 import * as reCreateVault from './commands/re-create-vault.command';
 import * as encryptVault from './commands/encrypt-vault.command';
@@ -27,7 +28,7 @@ yargs(hideBin(process.argv))
         builder: commonArgumentsBuilder,
         handler: (argv): void => {
             console.info(`Recreate Encryption Keys, Recreate Encryption Vault using new keys`);
-            reCreateVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
+            reCreateVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory, logger: defaultLogger });
             console.info(`Done`);
         },
     })
@@ -37,7 +38,7 @@ yargs(hideBin(process.argv))
         builder: commonArgumentsBuilder,
         handler: (argv): void => {
             console.info(`Encrypt Vault using encryption keys present in process.env | .env | .env.keys`);
-            encryptVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
+            encryptVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory, logger: defaultLogger });
             console.info(`Done`);
         },
     })
@@ -47,7 +48,7 @@ yargs(hideBin(process.argv))
         builder: commonArgumentsBuilder,
         handler: (argv): void => {
             console.info(`Encrypt Vault using encryption keys present in process.env | .env | .env.keys`);
-            decryptVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
+            decryptVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory, logger: defaultLogger });
             console.info(`Done`);
         },
     })
@@ -57,7 +58,7 @@ yargs(hideBin(process.argv))
         builder: commonArgumentsBuilder,
         handler: (argv): void => {
             console.info(`Rotate Encryption Keys`);
-            rotateKeys.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
+            rotateKeys.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory, logger: defaultLogger });
             console.info(`Done`);
         },
     })
@@ -66,7 +67,7 @@ yargs(hideBin(process.argv))
         describe: `Prints the environment variables in the current project\r\n`,
         builder: commonArgumentsBuilder,
         handler: (argv): void => {
-            configure({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
+            configure({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory, logger: defaultLogger });
             console.log(process.env);
         },
     })

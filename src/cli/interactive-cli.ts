@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as process from 'process';
 import * as yargs from 'yargs';
+import { defaultLogger } from '../core/logger/encrypted-env-logger';
 import { configure } from '../lib';
 import { InteractiveCommandLineUi, MenuOption } from './interactive-command-line-ui';
 import * as reCreateVault from './commands/re-create-vault.command';
@@ -21,15 +22,15 @@ const run = async (): Promise<void> => {
 
         switch (selectedOption) {
             case MenuOption.Recreate:
-                reCreateVault.run({ dotEnvFilesDirectory });
+                reCreateVault.run({ dotEnvFilesDirectory, logger: defaultLogger });
                 interactiveCli.printSuccess();
                 break;
             case MenuOption.RotateKeys:
-                rotateKeys.run({ dotEnvFilesDirectory });
+                rotateKeys.run({ dotEnvFilesDirectory, logger: defaultLogger });
                 interactiveCli.printSuccess();
                 break;
             case MenuOption.EncryptEnvFiles:
-                encryptVault.run({ dotEnvFilesDirectory });
+                encryptVault.run({ dotEnvFilesDirectory, logger: defaultLogger });
                 interactiveCli.printSuccess();
                 break;
             case MenuOption.GenerateKey:
@@ -37,12 +38,12 @@ const run = async (): Promise<void> => {
                 interactiveCli.printSuccess();
                 break;
             case MenuOption.PrintEnvVars:
-                configure({ dotEnvFilesDirectory });
+                configure({ dotEnvFilesDirectory, logger: defaultLogger });
                 console.log(process.env);
                 interactiveCli.printSuccess();
                 break;
             case MenuOption.DecryptEnvFiles:
-                decryptVault.run({ dotEnvFilesDirectory });
+                decryptVault.run({ dotEnvFilesDirectory, logger: defaultLogger });
                 interactiveCli.printSuccess();
                 break;
         }

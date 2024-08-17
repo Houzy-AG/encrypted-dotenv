@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName, getEnvironmentVariableFromLocalDotEnvFile } from './file-system';
+import { defaultTestLogger } from './logger/encrypted-env-logger';
 
 jest.mock('fs');
 
@@ -8,7 +9,7 @@ describe('getEnvFilesDirectory', () => {
         const cwd = '/path/to/project';
         process.cwd = jest.fn(() => cwd);
 
-        const result = getEnvFilesDirectory(undefined);
+        const result = getEnvFilesDirectory({ dotEnvFilesDirectory: undefined, logger: defaultTestLogger });
 
         expect(result).toBe(cwd);
     });
@@ -19,7 +20,7 @@ describe('getEnvFilesDirectory', () => {
         process.cwd = jest.fn(() => cwd);
         const expectedPath = '/path/to/project/config/env';
 
-        const result = getEnvFilesDirectory(dotEnvFilesDirectory);
+        const result = getEnvFilesDirectory({ dotEnvFilesDirectory, logger: defaultTestLogger });
 
         expect(result).toBe(expectedPath);
     });
@@ -32,7 +33,7 @@ describe('getEnvironmentVariableFromLocalDotEnvFile', () => {
 
         jest.spyOn(fs, 'existsSync').mockReturnValue(false);
 
-        const result = getEnvironmentVariableFromLocalDotEnvFile(dotEnvFilesDirectory);
+        const result = getEnvironmentVariableFromLocalDotEnvFile({ dotEnvFilesDirectory, logger: defaultTestLogger });
 
         expect(fs.existsSync).toHaveBeenCalledWith(filePath);
         expect(result).toEqual({});
@@ -52,7 +53,7 @@ describe('getEnvironmentVariableFromLocalDotEnvFile', () => {
             })),
         }));
 
-        const result = getEnvironmentVariableFromLocalDotEnvFile(dotEnvFilesDirectory);
+        const result = getEnvironmentVariableFromLocalDotEnvFile({ dotEnvFilesDirectory, logger: defaultTestLogger });
 
         expect(fs.existsSync).toHaveBeenCalledWith(filePath);
         expect(fs.readFileSync).toHaveBeenCalledWith(filePath);
@@ -70,7 +71,7 @@ describe('findAllDotEnvFiles', () => {
 
         jest.spyOn(fs, 'readdirSync').mockReturnValue([]);
 
-        const result = findAllDotEnvFiles(dotEnvFilesDirectory);
+        const result = findAllDotEnvFiles({ dotEnvFilesDirectory, logger: defaultTestLogger });
 
         expect(result).toEqual([]);
         expect(fs.readdirSync).toHaveBeenCalledWith(envFilesDirectory);
@@ -86,7 +87,7 @@ describe('findAllDotEnvFiles', () => {
             resolve: jest.fn((...args) => args.join('/')),
         }));
 
-        const result = findAllDotEnvFiles(dotEnvFilesDirectory);
+        const result = findAllDotEnvFiles({ dotEnvFilesDirectory, logger: defaultTestLogger });
 
         expect(result).toEqual([
             {

@@ -7,11 +7,13 @@ import * as process from 'process';
 import { EncryptionDecryptionDetails } from './encryption';
 import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName, getEnvironmentVariableFromLocalDotEnvFile } from './file-system';
 import { convertToUrl, isNil, isString, mergeRecordsWithValues } from '../utils';
+import { DefaultArguments } from './globals/default-arguments';
+import { getUnEncryptedEnvVars } from './globals/getUnEncryptedEnvVars';
 
 export const VAULT_DECRYPTION_KEY_PREFIX = `VAULT_KEY_`;
 
-export const getVaultKeysFromProcessEnv = (): Record<string, string> => {
-    return Object.keys(process.env)
+const getVaultKeysFromUnencryptedEnvVars = (options: DefaultArguments): Record<string, string> => {
+    return Object.keys(getUnEncryptedEnvVars(options))
         .filter((key) => key.startsWith(VAULT_DECRYPTION_KEY_PREFIX))
         .reduce((acc: Record<string, string>, vaultKeyName: string) => {
             const vaultKeyValue = process.env[vaultKeyName];
@@ -20,18 +22,6 @@ export const getVaultKeysFromProcessEnv = (): Record<string, string> => {
             }
             return acc;
         }, {} as Record<string, string>);
-};
-
-export const getVaultKeysFromLocalDotEnv = (dotEnvDirectoryName?: string): Record<string, string> => {
-    const localDotEnv = getEnvironmentVariableFromLocalDotEnvFile(dotEnvDirectoryName);
-
-    const out: Record<string, string> = {};
-    for (const envVarName in localDotEnv) {
-        if (envVarName.startsWith(VAULT_DECRYPTION_KEY_PREFIX)) {
-            out[envVarName] = localDotEnv[envVarName];
-        }
-    }
-    return out;
 };
 
 export type VaultKeys = Record<string, EncryptionDecryptionDetails | null>;
@@ -66,21 +56,11 @@ export const encodeVaultKey = (data: { encryptionIV: string; encryptionKey: stri
 // and the .env file has the name .env.local
 // then in .env.keys you should have some this
 // ENVIRONMENT_VARIABLE_VOLT_KEY_LOCAL=`{encodeURI(`encryptionIV=houzyDev&encryptionKey=houzyRocks2021`)}`
-export const getVaultKeys = (options: { dotEnvFilesDirectory?: string }): VaultKeys => {
-    const envFilesDirectory = getEnvFilesDirectory(options.dotEnvFilesDirectory);
-    const envKeysFilePath = path.resolve(envFilesDirectory, '.env.keys');
-    let encryptionDecryptionKeys: Record<string, string | undefined> = mergeRecordsWithValues([
-        getVaultKeysFromProcessEnv(),
-        getVaultKeysFromLocalDotEnv(options?.dotEnvFilesDirectory),
-    ]);
+export const getVaultKeys = (options: DefaultArguments): VaultKeys => {
+    options.dotEnvFilesDirectory ??= ``;
+    let encryptionDecryptionKeys: Record<string, string | undefined> = getVaultKeysFromUnencryptedEnvVars(options);
 
-    for (const vaultKeyName in Object.keys(process.env).filter((key) => key.startsWith(VAULT_DECRYPTION_KEY_PREFIX))) {
-        const vaultKeyValue = process.env[vaultKeyName];
-        if (isString(vaultKeyValue)) {
-            encryptionDecryptionKeys[vaultKeyName] = vaultKeyValue;
-        }
-    }
-
+    const envKeysFilePath = path.resolve(options.dotEnvFilesDirectory, '.env.keys');
     if (fs.existsSync(envKeysFilePath)) {
         encryptionDecryptionKeys = mergeRecordsWithValues([encryptionDecryptionKeys, parse(fs.readFileSync(envKeysFilePath))]);
     }
@@ -115,8 +95,8 @@ export const generateKey = (): { encryptionKey: string; encryptionIV: string } =
     encryptionIV: passwordGenerator.generate(encryptionKeyGeneratorOptions),
 });
 
-export const generateKeysForEnvFiles = (options: { dotEnvFilesDirectory?: string }): VaultKeys => {
-    const dotEnvFilesPath = findAllDotEnvFiles(options.dotEnvFilesDirectory);
+export const generateKeysForEnvFiles = (options: DefaultArguments): VaultKeys => {
+    const dotEnvFilesPath = findAllDotEnvFiles(options);
 
     const envVaultKeys: VaultKeys = {};
     for (const { fileName } of dotEnvFilesPath) {
@@ -129,13 +109,13 @@ export const generateKeysForEnvFiles = (options: { dotEnvFilesDirectory?: string
     return envVaultKeys;
 };
 
-export const writeVaultKeysToDisk = (dotEnvFilesDirectory: string | undefined, vaultKeys: VaultKeys): void => {
+export const writeVaultKeysToDisk = (props: DefaultArguments & { vaultKeys: VaultKeys }): void => {
     const vaultKeysList: string[] = [];
-    for (const [environmentName, vaultKey] of Object.entries(vaultKeys)) {
+    for (const [environmentName, vaultKey] of Object.entries(props.vaultKeys)) {
         if (!isNil(vaultKey)) {
             vaultKeysList.push(`${VAULT_DECRYPTION_KEY_PREFIX}${environmentName}=${encodeVaultKey(vaultKey)}`);
         }
     }
-    const envFilesDirectory = getEnvFilesDirectory(dotEnvFilesDirectory);
+    const envFilesDirectory = getEnvFilesDirectory(props);
     fs.writeFileSync(path.join(envFilesDirectory, '.env.keys'), vaultKeysList.join(os.EOL));
 };
