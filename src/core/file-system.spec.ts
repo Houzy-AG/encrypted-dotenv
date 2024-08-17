@@ -3,7 +3,7 @@ import { last } from 'lodash';
 import { writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import { TestFilesLocator } from '../test-files/test-files-locator';
-import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName } from './file-system';
+import { findAllDotEnvFiles, GENERAL_DOT_ENV_FILE_NAME, getEnvFilesDirectory, getEnvironmentNameFromFileName } from './file-system';
 import { defaultTestLogger } from './logger/encrypted-env-logger';
 import * as process from 'process';
 import { setupProcessEnvForTest } from './test-utils/setupProcessEnvForTest';
@@ -67,9 +67,7 @@ describe('getEnvironmentNameFromFileName', () => {
     });
 
     test('should return empty string when given an invalid .env file name', () => {
-        const fileName = '.env';
-
-        const result = getEnvironmentNameFromFileName(fileName);
+        const result = getEnvironmentNameFromFileName(GENERAL_DOT_ENV_FILE_NAME);
 
         expect(result).toBe(null);
     });

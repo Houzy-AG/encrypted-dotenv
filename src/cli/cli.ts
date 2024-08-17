@@ -4,6 +4,7 @@ import { hideBin } from 'yargs/helpers';
 import * as process from 'process';
 import { configure } from '../core/configure';
 import { defaultLogger } from '../core/logger/encrypted-env-logger';
+import { InteractiveCommandLineUi } from './interactive-command-line-ui';
 
 import * as reCreateVault from './commands/re-create-vault.command';
 import * as encryptVault from './commands/encrypt-vault.command';
@@ -11,6 +12,8 @@ import * as decryptVault from './commands/decrypt-vault.command';
 import * as rotateKeys from './commands/rotate-keys.command';
 import * as generateKey from './commands/generate-key.command';
 import * as cleanupExtraEnvFiles from './commands/cleanup-extra-env-files.command';
+import * as backupVault from './commands/backup-vault.command';
+import * as mergeBackupWithMain from './commands/merge-backup-with-main.command';
 
 const commonArguments = yargs.positional('dotEnvFilesDirectory', {
     describe: `Directory where dot env files are placed. It's relative to process.cwd()`,
@@ -21,6 +24,7 @@ const commonArguments = yargs.positional('dotEnvFilesDirectory', {
 });
 
 const commonArgumentsBuilder = (): typeof commonArguments => commonArguments;
+const interactiveCli = new InteractiveCommandLineUi(defaultLogger);
 
 yargs(hideBin(process.argv))
     .command({
@@ -82,10 +86,30 @@ yargs(hideBin(process.argv))
         },
     })
     .command({
-        command: `cleanup-extra-env-files [dotEnvFilesDirectory]`,
+        command: `cleanup-env-files [dotEnvFilesDirectory]`,
         describe: `Cleanup extra env files.\r\n The key can be used for deleting all .env.* files.\r\n`,
         handler: (argv): void => {
             cleanupExtraEnvFiles.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory, logger: defaultLogger });
+            defaultLogger.info(`Done`);
+        },
+    })
+    .command({
+        command: `backup-vault [dotEnvFilesDirectory]`,
+        describe: `Create a backup copy of env vault.\r\n This can be used before merging remote branches.\r\n`,
+        handler: (argv): void => {
+            backupVault.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory, logger: defaultLogger });
+            defaultLogger.info(`Done`);
+        },
+    })
+    .command({
+        command: `merge-vaults [dotEnvFilesDirectory]`,
+        describe: `Create a backup copy of env vault.\r\n This can be used before merging remote branches.\r\n`,
+        handler: async (argv): Promise<void> => {
+            await mergeBackupWithMain.run({
+                dotEnvFilesDirectory: argv.dotEnvFilesDirectory,
+                logger: defaultLogger,
+                askUserToDecideOnMergeConflict: (options) => interactiveCli.askForAnswer(options),
+            });
             defaultLogger.info(`Done`);
         },
     })

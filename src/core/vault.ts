@@ -1,20 +1,31 @@
-import * as fs from 'fs';
-import { omit, pick } from 'lodash';
-import * as path from 'path';
 import { parse } from 'dotenv';
-import { isNil } from '../utils';
+import * as fs from 'fs';
+import { difference, intersection, isEqual, omit, pick } from 'lodash';
+import * as path from 'path';
 import { decryptData, encryptData } from './encryption';
-import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName } from './file-system';
-import { DefaultArguments } from './globals/default-arguments';
 import { EncryptedDotEnvErrorCodes, failWithEncryptedFotEnvError } from './errors/encrypted-dot-env-error';
+import {
+    ENV_VAULT_BACKUP_FILE_NAME,
+    ENV_VAULT_FILE_NAME,
+    findAllDotEnvFiles,
+    getEnvFilesDirectory,
+    getEnvironmentNameFromFileName,
+    PossibleVaultFileNames,
+} from './file-system';
+import { DefaultArguments } from './globals/default-arguments';
 import { getVaultKeys, VaultKeys } from './vault-keys';
-import { EnvVaultJsonData, DecryptedVault } from './vault-types';
+import { DecryptedVault, DecryptedVaultInfo, EnvVaultJsonData } from './vault-types';
 
-export const readVaultFromDisk = (options: DefaultArguments): EnvVaultJsonData => {
+export const readVaultFromDisk = (
+    options: DefaultArguments & {
+        vaultFileName: PossibleVaultFileNames;
+    },
+): EnvVaultJsonData => {
+    const vaultFileName = options?.vaultFileName ?? ENV_VAULT_FILE_NAME;
     const envFilesDirectory = getEnvFilesDirectory(options);
-    const vaultFilePath = path.resolve(envFilesDirectory, '.env-vault.json');
+    const vaultFilePath = path.resolve(envFilesDirectory, vaultFileName);
     if (!fs.existsSync(vaultFilePath)) {
-        options.logger.info(`File .env-vault.json does not exist. Vault considered as empty`);
+        options.logger.info(`File ${vaultFileName} does not exist. Vault considered as empty`);
         return {};
     }
 
@@ -27,9 +38,30 @@ export const readVaultFromDisk = (options: DefaultArguments): EnvVaultJsonData =
     }
 };
 
-export const writeVaultToDisk = (options: DefaultArguments & { envVaultContent: EnvVaultJsonData }): void => {
+export const writeVaultToDisk = (
+    options: DefaultArguments & {
+        vaultFileName: PossibleVaultFileNames;
+        envVaultContent: EnvVaultJsonData;
+    },
+): void => {
     const envFilesDirectory = getEnvFilesDirectory(options);
-    fs.writeFileSync(path.join(envFilesDirectory, '.env-vault.json'), JSON.stringify(options.envVaultContent, null, 4));
+    const vaultFileName = options.vaultFileName ?? ENV_VAULT_FILE_NAME;
+    fs.writeFileSync(path.join(envFilesDirectory, vaultFileName), JSON.stringify(options.envVaultContent, null, 4));
+};
+
+export const backupVault = (options: DefaultArguments): void => {
+    const envFilesDirectory = getEnvFilesDirectory(options);
+    const backupFilePath = path.join(envFilesDirectory, ENV_VAULT_BACKUP_FILE_NAME);
+    if (fs.existsSync(backupFilePath)) {
+        fs.rmSync(backupFilePath, { recursive: true, force: true });
+    }
+    const fileName = path.join(envFilesDirectory, ENV_VAULT_FILE_NAME);
+    if (!fs.existsSync(fileName)) {
+        options.logger.info(`Vault does not exist`);
+        return;
+    }
+
+    fs.copyFileSync(fileName, backupFilePath);
 };
 
 export const writeEnvsToDisk = (options: DefaultArguments & { files: { environmentName: string; decryptedStringContent: string }[] }): void => {
@@ -40,7 +72,12 @@ export const writeEnvsToDisk = (options: DefaultArguments & { files: { environme
     }
 };
 
-export const encryptEnvFilesToVault = (options: DefaultArguments & { envVaultKeys: VaultKeys }): EnvVaultJsonData => {
+export const encryptEnvFilesToVault = (
+    options: DefaultArguments & {
+        vaultFileName: PossibleVaultFileNames;
+        envVaultKeys: VaultKeys;
+    },
+): EnvVaultJsonData => {
     const envVaultContent = readVaultFromDisk(options);
 
     const dotEnvFilesPath = findAllDotEnvFiles(options);
@@ -65,6 +102,7 @@ export const encryptEnvFilesToVault = (options: DefaultArguments & { envVaultKey
 
 export const reEncryptCurrentVaultWithKeys = (
     options: DefaultArguments & {
+        vaultFileName: PossibleVaultFileNames;
         currentVaultKeys: VaultKeys;
         newVaultKeys: VaultKeys;
     },
@@ -89,7 +127,12 @@ export const reEncryptCurrentVaultWithKeys = (
     return { envVaultKeys, vaultContent };
 };
 
-export const decryptVault = (options: DefaultArguments & { envVaultKeys: VaultKeys }): DecryptedVault => {
+export const decryptVault = (
+    options: DefaultArguments & {
+        vaultFileName: PossibleVaultFileNames;
+        envVaultKeys: VaultKeys;
+    },
+): DecryptedVault => {
     const envVaultContent = readVaultFromDisk(options);
 
     const envVaultContentDecrypted: DecryptedVault = {};
@@ -120,7 +163,12 @@ export const decryptVault = (options: DefaultArguments & { envVaultKeys: VaultKe
     return envVaultContentDecrypted;
 };
 
-export const decryptCurrentActiveEnvironment = (options: DefaultArguments & { currentEnvironment?: string }): EnvVaultJsonData => {
+export const decryptCurrentActiveEnvironment = (
+    options: DefaultArguments & {
+        vaultFileName: PossibleVaultFileNames;
+        currentEnvironment?: string;
+    },
+): EnvVaultJsonData => {
     const vaultKeys = getVaultKeys(options);
     let currentActiveEnvironmentName = options.currentEnvironment;
     if (!Object.keys(vaultKeys).length && !currentActiveEnvironmentName?.length) {
@@ -160,4 +208,124 @@ export const decryptCurrentActiveEnvironment = (options: DefaultArguments & { cu
     }
 
     return decryptedEnvironments[0].data ?? {};
+};
+export type VaultDiff =
+    | {
+          type: 'environment-diff';
+          environmentName: string;
+          fileName: string;
+          vaultInfo: DecryptedVaultInfo;
+      }
+    | {
+          type: 'env-var-diff';
+          environmentName: string;
+          envVarName: string;
+          left: { fileName: string; value: string };
+          right: { fileName: string; value: string };
+      };
+
+export interface VaultDifferenceOverview {
+    mainVault: DecryptedVault;
+    diffs: VaultDiff[];
+}
+
+export const getDifferencesBetweenVaults = (
+    options: DefaultArguments & {
+        envVaultKeys: VaultKeys;
+    },
+): VaultDifferenceOverview => {
+    const mainVault = decryptVault({ ...options, vaultFileName: ENV_VAULT_FILE_NAME });
+    const backupVault = decryptVault({ ...options, vaultFileName: ENV_VAULT_BACKUP_FILE_NAME });
+
+    const processedEnvs = new Set<string>([]);
+
+    const getVaultDifference = (
+        left: {
+            fileName: string;
+            vault: DecryptedVault;
+        },
+        right: {
+            fileName: string;
+            vault: DecryptedVault;
+        },
+    ): VaultDiff[] => {
+        const vaultDiffs: VaultDiff[] = [];
+
+        for (const environmentName in left.vault) {
+            if (processedEnvs.has(environmentName)) {
+                continue;
+            }
+
+            if (!right.vault[environmentName]) {
+                vaultDiffs.push({ type: 'environment-diff', environmentName, fileName: left.fileName, vaultInfo: left.vault[environmentName] });
+                processedEnvs.add(environmentName);
+                continue;
+            }
+
+            if (!left.vault[environmentName].decrypted) {
+                failWithEncryptedFotEnvError({
+                    message: `Missing decryption key for environment. ${environmentName} from ${ENV_VAULT_FILE_NAME} could not be decrypted.`,
+                    errorCode: EncryptedDotEnvErrorCodes.MISSING_DECRYPTION_KEY_FOR_ENVIRONMENT,
+                });
+            }
+
+            if (!right.vault[environmentName].decrypted) {
+                failWithEncryptedFotEnvError({
+                    message: `Missing decryption key for environment. ${environmentName} from ${ENV_VAULT_BACKUP_FILE_NAME} could not be decrypted.`,
+                    errorCode: EncryptedDotEnvErrorCodes.MISSING_DECRYPTION_KEY_FOR_ENVIRONMENT,
+                });
+            }
+
+            const leftVaultData = left.vault[environmentName].data ?? {};
+            const rightVaultData = right.vault[environmentName].data ?? {};
+
+            const commonEnvVars = intersection(Object.keys(leftVaultData), Object.keys(rightVaultData));
+            for (const envVarName of commonEnvVars) {
+                if (isEqual(leftVaultData[envVarName], rightVaultData[envVarName])) {
+                    continue;
+                }
+                vaultDiffs.push({
+                    type: 'env-var-diff',
+                    environmentName,
+                    envVarName,
+                    left: { fileName: left.fileName, value: leftVaultData[envVarName] },
+                    right: { fileName: right.fileName, value: rightVaultData[envVarName] },
+                });
+            }
+
+            const leftExtraEnvVars = difference(Object.keys(leftVaultData), Object.keys(rightVaultData));
+            for (const envVarName of leftExtraEnvVars) {
+                vaultDiffs.push({
+                    type: 'env-var-diff',
+                    environmentName,
+                    envVarName,
+                    left: { fileName: left.fileName, value: leftVaultData[envVarName] },
+                    right: { fileName: right.fileName, value: `` },
+                });
+            }
+            const rightExtraEnvVars = difference(Object.keys(rightVaultData), Object.keys(leftVaultData));
+            for (const envVarName of rightExtraEnvVars) {
+                vaultDiffs.push({
+                    type: 'env-var-diff',
+                    environmentName,
+                    envVarName,
+                    left: { fileName: left.fileName, value: `` },
+                    right: { fileName: right.fileName, value: rightVaultData[envVarName] },
+                });
+            }
+            processedEnvs.add(environmentName);
+        }
+
+        return vaultDiffs;
+    };
+
+    const allDiffs = [
+        ...getVaultDifference({ fileName: ENV_VAULT_FILE_NAME, vault: mainVault }, { fileName: ENV_VAULT_BACKUP_FILE_NAME, vault: backupVault }),
+        ...getVaultDifference({ fileName: ENV_VAULT_BACKUP_FILE_NAME, vault: backupVault }, { fileName: ENV_VAULT_FILE_NAME, vault: mainVault }),
+    ];
+
+    return {
+        mainVault,
+        diffs: [...allDiffs.filter((diff) => diff.type === 'environment-diff'), ...allDiffs.filter((diff) => diff.type !== 'environment-diff')],
+    };
 };

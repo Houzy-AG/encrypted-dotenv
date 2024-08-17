@@ -1,6 +1,6 @@
 import * as process from 'process';
 import { mergeRecordsWithValues } from '../utils';
-import { getUnEncryptedEnvVars } from './file-system';
+import { ENV_VAULT_FILE_NAME, getUnEncryptedEnvVars } from './file-system';
 import { DefaultArguments } from './globals/default-arguments';
 import { defaultLogger } from './logger/encrypted-env-logger';
 import { decryptCurrentActiveEnvironment } from './vault';
@@ -15,7 +15,11 @@ export const configure = (options?: DefaultArguments): void => {
 
     const correctEnvVars = mergeRecordsWithValues([
         unEncryptedEnvVars,
-        decryptCurrentActiveEnvironment({ ...options, currentEnvironment: (unEncryptedEnvVars.ENVIRONMENT ?? ``).toUpperCase() }),
+        decryptCurrentActiveEnvironment({
+            ...options,
+            vaultFileName: ENV_VAULT_FILE_NAME,
+            currentEnvironment: (unEncryptedEnvVars.ENVIRONMENT ?? ``).toUpperCase(),
+        }),
     ]);
     for (const key in correctEnvVars) {
         process.env[key] = correctEnvVars[key];

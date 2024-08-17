@@ -5,7 +5,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as process from 'process';
 import { EncryptionDecryptionDetails } from './encryption';
-import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName, getUnEncryptedEnvVars } from './file-system';
+import { ENV_KEYS_FILE_NAME, findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName, getUnEncryptedEnvVars } from './file-system';
 import { convertToUrl, isNil, isString, mergeRecordsWithValues } from '../utils';
 import { DefaultArguments } from './globals/default-arguments';
 
@@ -59,7 +59,7 @@ export const getVaultKeys = (options: DefaultArguments): VaultKeys => {
     options.dotEnvFilesDirectory ??= ``;
     let encryptionDecryptionKeys: Record<string, string | undefined> = getVaultKeysFromUnencryptedEnvVars(options);
 
-    const envKeysFilePath = path.resolve(options.dotEnvFilesDirectory, '.env.keys');
+    const envKeysFilePath = path.resolve(options.dotEnvFilesDirectory, ENV_KEYS_FILE_NAME);
     if (fs.existsSync(envKeysFilePath)) {
         encryptionDecryptionKeys = mergeRecordsWithValues([encryptionDecryptionKeys, parse(fs.readFileSync(envKeysFilePath))]);
     }
@@ -116,5 +116,5 @@ export const writeVaultKeysToDisk = (props: DefaultArguments & { vaultKeys: Vaul
         }
     }
     const envFilesDirectory = getEnvFilesDirectory(props);
-    fs.writeFileSync(path.join(envFilesDirectory, '.env.keys'), vaultKeysList.join(os.EOL));
+    fs.writeFileSync(path.join(envFilesDirectory, ENV_KEYS_FILE_NAME), vaultKeysList.join(os.EOL));
 };
