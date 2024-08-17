@@ -10,7 +10,8 @@ export enum MenuOption {
     GenerateKey = `4`,
     RotateKeys = `5`,
     Recreate = `6`,
-    Exit = `7`,
+    CleanupExtraEnvFiles = `7`,
+    Exit = `8`,
 }
 
 const menuLabels: Record<MenuOption, string> = {
@@ -20,6 +21,7 @@ const menuLabels: Record<MenuOption, string> = {
     [MenuOption.GenerateKey]: 'Generate Key',
     [MenuOption.RotateKeys]: 'Rotate Vault Keys',
     [MenuOption.Recreate]: 'Recreate Vault',
+    [MenuOption.CleanupExtraEnvFiles]: 'Cleanup extra env files',
     [MenuOption.Exit]: 'Exit',
 };
 

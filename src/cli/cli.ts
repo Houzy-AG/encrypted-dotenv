@@ -10,6 +10,7 @@ import * as encryptVault from './commands/encrypt-vault.command';
 import * as decryptVault from './commands/decrypt-vault.command';
 import * as rotateKeys from './commands/rotate-keys.command';
 import * as generateKey from './commands/generate-key.command';
+import * as cleanupExtraEnvFiles from './commands/cleanup-extra-env-files.command';
 
 const commonArguments = yargs.positional('dotEnvFilesDirectory', {
     describe: `Directory where dot env files are placed. It's relative to process.cwd()`,
@@ -77,6 +78,14 @@ yargs(hideBin(process.argv))
         handler: (): void => {
             defaultLogger.info(`Encryption Key:`);
             generateKey.run({ logger: defaultLogger });
+            defaultLogger.info(`Done`);
+        },
+    })
+    .command({
+        command: `cleanup-extra-env-files [dotEnvFilesDirectory]`,
+        describe: `Cleanup extra env files.\r\n The key can be used for deleting all .env.* files.\r\n`,
+        handler: (argv): void => {
+            cleanupExtraEnvFiles.run({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory, logger: defaultLogger });
             defaultLogger.info(`Done`);
         },
     })

@@ -9,6 +9,7 @@ import * as encryptVault from './commands/encrypt-vault.command';
 import * as decryptVault from './commands/decrypt-vault.command';
 import * as rotateKeys from './commands/rotate-keys.command';
 import * as generateKey from './commands/generate-key.command';
+import * as cleanupExtraEnvFiles from './commands/cleanup-extra-env-files.command';
 
 const interactiveCli = new InteractiveCommandLineUi(defaultLogger);
 
@@ -44,6 +45,10 @@ const run = async (): Promise<void> => {
                 break;
             case MenuOption.DecryptEnvFiles:
                 decryptVault.run({ dotEnvFilesDirectory, logger: defaultLogger });
+                interactiveCli.printSuccess();
+                break;
+            case MenuOption.CleanupExtraEnvFiles:
+                cleanupExtraEnvFiles.run({ dotEnvFilesDirectory, logger: defaultLogger });
                 interactiveCli.printSuccess();
                 break;
         }
