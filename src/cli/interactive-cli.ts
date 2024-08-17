@@ -10,7 +10,7 @@ import * as decryptVault from './commands/decrypt-vault.command';
 import * as rotateKeys from './commands/rotate-keys.command';
 import * as generateKey from './commands/generate-key.command';
 
-const interactiveCli = new InteractiveCommandLineUi();
+const interactiveCli = new InteractiveCommandLineUi(defaultLogger);
 
 const args = yargs.parseSync(process.argv);
 const dotEnvFilesDirectory = (args.dotEnvFilesDirectory as string) || ``;
@@ -34,12 +34,12 @@ const run = async (): Promise<void> => {
                 interactiveCli.printSuccess();
                 break;
             case MenuOption.GenerateKey:
-                generateKey.run();
+                generateKey.run({ logger: defaultLogger });
                 interactiveCli.printSuccess();
                 break;
             case MenuOption.PrintEnvVars:
                 configure({ dotEnvFilesDirectory, logger: defaultLogger });
-                console.log(process.env);
+                defaultLogger.log(JSON.stringify(process.env, null, 4));
                 interactiveCli.printSuccess();
                 break;
             case MenuOption.DecryptEnvFiles:
@@ -54,7 +54,7 @@ const run = async (): Promise<void> => {
 };
 
 run().catch((e) => {
-    console.error('GlobalErrorHandler', e);
+    defaultLogger.error('GlobalErrorHandler', e);
     process.exit(1);
 });
 

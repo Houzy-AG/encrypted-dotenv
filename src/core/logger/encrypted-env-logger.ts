@@ -1,9 +1,9 @@
 import { identity } from 'lodash';
 
 export interface EncryptedEnvLogger {
-    info(message: string): void;
-    log(message: string): void;
-    error(message: string | Error): void;
+    info(...message: unknown[]): void;
+    log(...message: unknown[]): void;
+    error(...message: unknown[]): void;
 }
 
 export const defaultLogger: EncryptedEnvLogger = console;

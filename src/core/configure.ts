@@ -1,8 +1,8 @@
 import * as process from 'process';
 import { mergeRecordsWithValues } from '../utils';
+import { getUnEncryptedEnvVars } from './file-system';
 import { DefaultArguments } from './globals/default-arguments';
 import { defaultLogger } from './logger/encrypted-env-logger';
-import { getUnEncryptedEnvVars } from './globals/getUnEncryptedEnvVars';
 import { decryptCurrentActiveEnvironment } from './vault';
 
 // Return the env vars for the current environment by merging the process.env with the local .env file and with the vault variables for the

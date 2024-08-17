@@ -2,19 +2,21 @@ import { parse } from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as process from 'process';
+import { mergeRecordsWithValues } from '../utils';
 import { DefaultArguments } from './globals/default-arguments';
 
 export const getEnvFilesDirectory = ({ dotEnvFilesDirectory }: DefaultArguments): string => {
     return dotEnvFilesDirectory?.length ? path.resolve(process.cwd(), dotEnvFilesDirectory) : process.cwd();
 };
 
-// Returns the env vars from .env file
-export const getEnvironmentVariableFromLocalDotEnvFile = (props: DefaultArguments): Record<string, string> => {
-    const filePath = path.resolve(getEnvFilesDirectory(props), `.env`);
+// Return all env variables inside `process.env` + `.env` file.
+export const getUnEncryptedEnvVars = (options: DefaultArguments): Record<string, string | undefined> => {
+    const filePath = path.resolve(getEnvFilesDirectory(options), `.env`);
+    let envVars = {};
     if (fs.existsSync(filePath)) {
-        return parse(fs.readFileSync(filePath));
+        envVars = parse(fs.readFileSync(filePath));
     }
-    return {};
+    return mergeRecordsWithValues([{ ...process.env }, envVars]);
 };
 
 const protectedFileNames = ['.env', '.env.keys', '.env-vault.json'];

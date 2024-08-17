@@ -1,6 +1,7 @@
+import { DefaultArguments } from '../../core/globals/default-arguments';
 import { encodeVaultKey, generateKey } from '../../core/vault-keys';
 
-export const run = (): void => {
+export const run = ({ logger }: Pick<DefaultArguments, 'logger'>): void => {
     const newKeys = generateKey();
-    console.log(encodeVaultKey(newKeys));
+    logger.log(encodeVaultKey(newKeys));
 };

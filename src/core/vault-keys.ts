@@ -5,10 +5,9 @@ import * as os from 'os';
 import * as path from 'path';
 import * as process from 'process';
 import { EncryptionDecryptionDetails } from './encryption';
-import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName, getEnvironmentVariableFromLocalDotEnvFile } from './file-system';
+import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName, getUnEncryptedEnvVars } from './file-system';
 import { convertToUrl, isNil, isString, mergeRecordsWithValues } from '../utils';
 import { DefaultArguments } from './globals/default-arguments';
-import { getUnEncryptedEnvVars } from './globals/getUnEncryptedEnvVars';
 
 export const VAULT_DECRYPTION_KEY_PREFIX = `VAULT_KEY_`;
 

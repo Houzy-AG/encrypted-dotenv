@@ -6,4 +6,7 @@ export const TestFilesLocator = {
     two_decryption_keys_with_env_name_specified: path.join(__dirname, '/two-decryption-keys-with-env-name-specified'),
     one_decryption_key_with_wrong_env_name_specified: path.join(__dirname, '/one-decryption-key-with-wrong-env-name-specified'),
     only_invalid_decryption_key: path.join(__dirname, '/only-invalid-decryption-key'),
+    invalid_vault_json: path.join(__dirname, '/invalid-vault-json'),
+    // Empty directory used by test cases
+    tests_fs_directory_location: path.join(__dirname, '/tests_fs_directory_location'),
 } as const;

@@ -14,7 +14,7 @@ export const readVaultFromDisk = (options: DefaultArguments): EnvVaultJsonData =
     const envFilesDirectory = getEnvFilesDirectory(options);
     const vaultFilePath = path.resolve(envFilesDirectory, '.env-vault.json');
     if (!fs.existsSync(vaultFilePath)) {
-        console.info(`File .env-vault.json does not exist. Vault considered as empty`);
+        options.logger.info(`File .env-vault.json does not exist. Vault considered as empty`);
         return {};
     }
 
@@ -22,7 +22,7 @@ export const readVaultFromDisk = (options: DefaultArguments): EnvVaultJsonData =
     try {
         return JSON.parse(vaultFileContent) as EnvVaultJsonData;
     } catch (e) {
-        console.error(`Vault content could not be parsed`, e);
+        options.logger.error(`Vault content could not be parsed`, e);
         return {};
     }
 };
@@ -108,7 +108,7 @@ export const decryptVault = (options: DefaultArguments & { envVaultKeys: VaultKe
             continue;
         }
 
-        console.log(`Environment: ${environmentName}. Decrypted successfully`);
+        options.logger.log(`Environment: ${environmentName}. Decrypted successfully`);
         const decryptedEnvVars = decryptData({
             data: envVaultContent[environmentName],
             ...vaultKey,

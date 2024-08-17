@@ -1,6 +1,7 @@
 import * as chalk from 'chalk';
 import * as inquirer from 'inquirer';
 import * as os from 'os';
+import { EncryptedEnvLogger } from '../core/logger/encrypted-env-logger';
 
 export enum MenuOption {
     EncryptEnvFiles = `1`,
@@ -23,6 +24,8 @@ const menuLabels: Record<MenuOption, string> = {
 };
 
 export class InteractiveCommandLineUi {
+    constructor(private logger: EncryptedEnvLogger) {}
+
     public async askForMenuOption(): Promise<MenuOption | null> {
         const validIds = Object.values(MenuOption);
         const questions = [
@@ -49,10 +52,10 @@ export class InteractiveCommandLineUi {
     }
 
     public printByeMessage(): void {
-        console.log(chalk.yellow(`Exit ${os.EOL}`));
+        this.logger.log(chalk.yellow(`Exit ${os.EOL}`));
     }
 
     public printSuccess(): void {
-        console.log(chalk.yellow(`Task completed Successfully`));
+        this.logger.log(chalk.yellow(`Task completed Successfully`));
     }
 }

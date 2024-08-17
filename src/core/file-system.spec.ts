@@ -1,105 +1,59 @@
 import * as fs from 'fs';
-import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName, getEnvironmentVariableFromLocalDotEnvFile } from './file-system';
+import { last } from 'lodash';
+import { writeFileSync } from 'node:fs';
+import * as os from 'node:os';
+import { TestFilesLocator } from '../test-files/test-files-locator';
+import { findAllDotEnvFiles, getEnvFilesDirectory, getEnvironmentNameFromFileName } from './file-system';
 import { defaultTestLogger } from './logger/encrypted-env-logger';
+import * as process from 'process';
+import { setupProcessEnvForTest } from './test-utils/setupProcessEnvForTest';
 
-jest.mock('fs');
+setupProcessEnvForTest();
 
 describe('getEnvFilesDirectory', () => {
     test('should return current working directory when dotEnvFilesDirectory is not provided', () => {
-        const cwd = '/path/to/project';
-        process.cwd = jest.fn(() => cwd);
-
         const result = getEnvFilesDirectory({ dotEnvFilesDirectory: undefined, logger: defaultTestLogger });
 
-        expect(result).toBe(cwd);
+        expect(result).toBe(process.cwd());
     });
 
     test('should return resolved directory path when dotEnvFilesDirectory is provided', () => {
-        const dotEnvFilesDirectory = 'config/env';
-        const cwd = '/path/to/project';
-        process.cwd = jest.fn(() => cwd);
-        const expectedPath = '/path/to/project/config/env';
+        const result = getEnvFilesDirectory({ dotEnvFilesDirectory: TestFilesLocator.tests_fs_directory_location, logger: defaultTestLogger });
 
-        const result = getEnvFilesDirectory({ dotEnvFilesDirectory, logger: defaultTestLogger });
-
-        expect(result).toBe(expectedPath);
-    });
-});
-
-describe('getEnvironmentVariableFromLocalDotEnvFile', () => {
-    test('should return an empty object when .env file does not exist', () => {
-        const dotEnvFilesDirectory = 'config/env';
-        const filePath = '/path/to/project/config/env/.env';
-
-        jest.spyOn(fs, 'existsSync').mockReturnValue(false);
-
-        const result = getEnvironmentVariableFromLocalDotEnvFile({ dotEnvFilesDirectory, logger: defaultTestLogger });
-
-        expect(fs.existsSync).toHaveBeenCalledWith(filePath);
-        expect(result).toEqual({});
-    });
-
-    test('should return parsed environment variables when .env file exists', () => {
-        const dotEnvFilesDirectory = 'config/env';
-        const filePath = '/path/to/project/config/env/.env';
-        const fileContent = 'KEY1=value1\nKEY2=value2';
-
-        jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-        jest.spyOn(fs, 'readFileSync').mockReturnValue(fileContent);
-        jest.mock('dotenv', () => ({
-            parse: jest.fn(() => ({
-                KEY1: 'value1',
-                KEY2: 'value2',
-            })),
-        }));
-
-        const result = getEnvironmentVariableFromLocalDotEnvFile({ dotEnvFilesDirectory, logger: defaultTestLogger });
-
-        expect(fs.existsSync).toHaveBeenCalledWith(filePath);
-        expect(fs.readFileSync).toHaveBeenCalledWith(filePath);
-        expect(result).toEqual({
-            KEY1: 'value1',
-            KEY2: 'value2',
-        });
+        expect(result).toBe(TestFilesLocator.tests_fs_directory_location);
     });
 });
 
 describe('findAllDotEnvFiles', () => {
     test('should return an empty array when no .env files are found', () => {
-        const dotEnvFilesDirectory = 'config/env';
-        const envFilesDirectory = '/path/to/project/config/env';
-
-        jest.spyOn(fs, 'readdirSync').mockReturnValue([]);
-
-        const result = findAllDotEnvFiles({ dotEnvFilesDirectory, logger: defaultTestLogger });
+        const result = findAllDotEnvFiles({ dotEnvFilesDirectory: TestFilesLocator.tests_fs_directory_location, logger: defaultTestLogger });
 
         expect(result).toEqual([]);
-        expect(fs.readdirSync).toHaveBeenCalledWith(envFilesDirectory);
     });
 
     test('should return an array of file paths and names for found .env files', () => {
-        const dotEnvFilesDirectory = 'config/env';
-        const envFilesDirectory = '/path/to/project/config/env';
-        const fileNames = ['.env.dev', '.env.prod'];
-
-        jest.spyOn(fs, 'readdirSync').mockReturnValue(fileNames as unknown as fs.Dirent[]);
-        jest.mock('path', () => ({
-            resolve: jest.fn((...args) => args.join('/')),
-        }));
-
-        const result = findAllDotEnvFiles({ dotEnvFilesDirectory, logger: defaultTestLogger });
-
-        expect(result).toEqual([
+        const filesList = [
             {
-                path: '/path/to/project/config/env/.env.dev',
-                fileName: '.env.dev',
+                path: `${TestFilesLocator.tests_fs_directory_location}/.env.local`,
+                content: [`VAR_ONE=1`, `VAR_TWO=2`].join(os.EOL),
             },
             {
-                path: '/path/to/project/config/env/.env.prod',
-                fileName: '.env.prod',
+                path: `${TestFilesLocator.tests_fs_directory_location}/.env.test`,
+                content: [`VAR_THREE=3`, `VAR_THREE=3`].join(os.EOL),
             },
-        ]);
-        expect(fs.readdirSync).toHaveBeenCalledWith(envFilesDirectory);
+        ];
+
+        for (const file of filesList) {
+            writeFileSync(file.path, file.content, {});
+        }
+        const result = findAllDotEnvFiles({ dotEnvFilesDirectory: TestFilesLocator.tests_fs_directory_location, logger: defaultTestLogger });
+
+        expect(result).toEqual(
+            filesList.map((item) => ({
+                path: item.path,
+                fileName: last(item.path.split('/')),
+            })),
+        );
     });
 });
 
