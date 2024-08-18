@@ -1,5 +1,5 @@
 import { parse } from 'dotenv';
-import { cloneDeep, difference, intersection, isEqual, pick } from 'lodash';
+import { cloneDeep, difference, intersection, isEqual, isNil, pick } from 'lodash';
 import * as process from 'process';
 import { MergeConflictQuestion } from '../../cli/interactive-command-line-ui';
 import { mergeRecordsWithValues } from '../../utils';
@@ -56,39 +56,38 @@ export class VaultEnvironmentsManager {
 
     private decryptEnvironmentOrDefault(environmentName: string) {
         const encryptionKeys = this.vaultKeysManager.readEncryptionKeys();
-        let currentActiveEnvironmentName = environmentName;
-        if (!Object.keys(encryptionKeys).length && !currentActiveEnvironmentName?.length) {
+        if (!Object.keys(encryptionKeys).length && !environmentName?.length) {
             // There are no vault keys and there is no environment set so we do not need to decrypt anything.
             return {};
         }
+        let environmentNameToBeDecrypted: string | null = null;
 
-        if (!currentActiveEnvironmentName?.length) {
-            if (Object.keys(encryptionKeys).length > 1) {
-                failWithEncryptedFotEnvError({
-                    message: [
-                        `Missing ENVIRONMENT and more then one environment was decrypted.`,
-                        `If you have multiple decryption keys specified in the current machine please specify which environment from the vault to use ENVIRONMENT={{environmentToUseFromVault}}`,
-                    ].join(' '),
-                    errorCode: EncryptedDotEnvErrorCodes.FAILED_TO_IDENTIFY_CURRENT_ENVIRONMENT_MULTIPLE_VAULT_KEYS,
-                });
-            }
-            currentActiveEnvironmentName = Object.keys(encryptionKeys)[0];
+        if (Object.keys(encryptionKeys).length === 1) {
+            environmentNameToBeDecrypted = Object.keys(encryptionKeys)[0];
+        } else {
+            environmentNameToBeDecrypted = environmentName?.length > 0 ? environmentName : null;
         }
 
-        if (!encryptionKeys?.[currentActiveEnvironmentName]) {
+        if (isNil(environmentNameToBeDecrypted)) {
             failWithEncryptedFotEnvError({
-                message: [
-                    `Missing decryption key for ENVIRONMENT: "${currentActiveEnvironmentName}"`,
-                    `If you have multiple decryption keys specified in the current machine please specify which environment from the vault to use ENVIRONMENT={{environmentToUseFromVault}}`,
-                ].join(' '),
-                errorCode: EncryptedDotEnvErrorCodes.FAILED_TO_DECRYPT_ENVIRONMENT_MISSING_DECRYPTION,
+                message: `No environment was specified to be decrypted`,
+                errorCode: EncryptedDotEnvErrorCodes.FAILED_TO_IDENTIFY_ACTIVE_ENVIRONMENT,
             });
         }
-        const vaultVariables = this.decryptEnvironmentsVault({ encryptionKeysByEnvironment: pick(encryptionKeys, currentActiveEnvironmentName) });
+
+        const environmentNameToDecrypt = environmentNameToBeDecrypted!;
+        if (!encryptionKeys?.[environmentNameToDecrypt]) {
+            failWithEncryptedFotEnvError({
+                message: `No decryption key found for environment: "${environmentNameToDecrypt}"`,
+                errorCode: EncryptedDotEnvErrorCodes.FAILED_TO_IDENTIFY_DECRYPTION_KEY_FOR_ACTIVE_ENVIRONMENT,
+            });
+        }
+
+        const vaultVariables = this.decryptEnvironmentsVault({ encryptionKeysByEnvironment: pick(encryptionKeys, environmentNameToDecrypt) });
         const decryptedEnvironments = Object.values(vaultVariables).filter((vaultData) => vaultData.decrypted);
         if (!decryptedEnvironments.length) {
             failWithEncryptedFotEnvError({
-                message: [`Failed to decrypt ENVIRONMENT: "${currentActiveEnvironmentName}".`, `Check your decryption key`].join(' '),
+                message: [`Failed to decrypt ENVIRONMENT: "${environmentNameToDecrypt}".`, `Check your decryption key`].join(' '),
                 errorCode: EncryptedDotEnvErrorCodes.FAILED_TO_DECRYPT_ENVIRONMENT_INVALID_DECRYPTION_KEY,
             });
         }
@@ -125,6 +124,104 @@ export class VaultEnvironmentsManager {
             envVaultContentDecrypted[environmentName].decrypted = true;
         }
         return envVaultContentDecrypted;
+    }
+
+    private getDiffsWithBackup(): VaultDifferenceOverview {
+        const envVaultKeys = this.vaultKeysManager.readEncryptionKeys();
+        const mainVault = this.decryptEnvironmentsVault({ encryptionKeysByEnvironment: envVaultKeys });
+        const backupVault = this.decryptEnvironmentsVault({ encryptionKeysByEnvironment: envVaultKeys });
+
+        const processedEnvs = new Set<string>([]);
+
+        const getVaultDifference = (
+            left: {
+                fileName: string;
+                vault: DecryptedVault;
+            },
+            right: {
+                fileName: string;
+                vault: DecryptedVault;
+            },
+        ): VaultDiff[] => {
+            const vaultDiffs: VaultDiff[] = [];
+
+            for (const environmentName in left.vault) {
+                if (processedEnvs.has(environmentName)) {
+                    continue;
+                }
+
+                if (!right.vault[environmentName]) {
+                    vaultDiffs.push({ type: 'environment-diff', environmentName, fileName: left.fileName, vaultInfo: left.vault[environmentName] });
+                    processedEnvs.add(environmentName);
+                    continue;
+                }
+
+                if (!left.vault[environmentName].decrypted) {
+                    failWithEncryptedFotEnvError({
+                        message: `Missing decryption key for environment. ${environmentName} from ${ENV_VAULT_FILE_NAME} could not be decrypted.`,
+                        errorCode: EncryptedDotEnvErrorCodes.MISSING_DECRYPTION_KEY_FOR_ENVIRONMENT,
+                    });
+                }
+
+                if (!right.vault[environmentName].decrypted) {
+                    failWithEncryptedFotEnvError({
+                        message: `Missing decryption key for environment. ${environmentName} from ${ENV_VAULT_BACKUP_FILE_NAME} could not be decrypted.`,
+                        errorCode: EncryptedDotEnvErrorCodes.MISSING_DECRYPTION_KEY_FOR_ENVIRONMENT,
+                    });
+                }
+
+                const leftVaultData = left.vault[environmentName].data ?? {};
+                const rightVaultData = right.vault[environmentName].data ?? {};
+
+                const commonEnvVars = intersection(Object.keys(leftVaultData), Object.keys(rightVaultData));
+                for (const envVarName of commonEnvVars) {
+                    if (isEqual(leftVaultData[envVarName], rightVaultData[envVarName])) {
+                        continue;
+                    }
+                    vaultDiffs.push({
+                        type: 'env-var-diff',
+                        environmentName,
+                        envVarName,
+                        left: { fileName: left.fileName, value: leftVaultData[envVarName] },
+                        right: { fileName: right.fileName, value: rightVaultData[envVarName] },
+                    });
+                }
+
+                const leftExtraEnvVars = difference(Object.keys(leftVaultData), Object.keys(rightVaultData));
+                for (const envVarName of leftExtraEnvVars) {
+                    vaultDiffs.push({
+                        type: 'env-var-diff',
+                        environmentName,
+                        envVarName,
+                        left: { fileName: left.fileName, value: leftVaultData[envVarName] },
+                        right: { fileName: right.fileName, value: `` },
+                    });
+                }
+                const rightExtraEnvVars = difference(Object.keys(rightVaultData), Object.keys(leftVaultData));
+                for (const envVarName of rightExtraEnvVars) {
+                    vaultDiffs.push({
+                        type: 'env-var-diff',
+                        environmentName,
+                        envVarName,
+                        left: { fileName: left.fileName, value: `` },
+                        right: { fileName: right.fileName, value: rightVaultData[envVarName] },
+                    });
+                }
+                processedEnvs.add(environmentName);
+            }
+
+            return vaultDiffs;
+        };
+
+        const allDiffs = [
+            ...getVaultDifference({ fileName: ENV_VAULT_FILE_NAME, vault: mainVault }, { fileName: ENV_VAULT_BACKUP_FILE_NAME, vault: backupVault }),
+            ...getVaultDifference({ fileName: ENV_VAULT_BACKUP_FILE_NAME, vault: backupVault }, { fileName: ENV_VAULT_FILE_NAME, vault: mainVault }),
+        ];
+
+        return {
+            mainVault,
+            diffs: [...allDiffs.filter((diff) => diff.type === 'environment-diff'), ...allDiffs.filter((diff) => diff.type !== 'environment-diff')],
+        };
     }
 
     // Public api
@@ -269,103 +366,5 @@ export class VaultEnvironmentsManager {
                     break;
             }
         }
-    }
-
-    private getDiffsWithBackup(): VaultDifferenceOverview {
-        const envVaultKeys = this.vaultKeysManager.readEncryptionKeys();
-        const mainVault = this.decryptEnvironmentsVault({ encryptionKeysByEnvironment: envVaultKeys });
-        const backupVault = this.decryptEnvironmentsVault({ encryptionKeysByEnvironment: envVaultKeys });
-
-        const processedEnvs = new Set<string>([]);
-
-        const getVaultDifference = (
-            left: {
-                fileName: string;
-                vault: DecryptedVault;
-            },
-            right: {
-                fileName: string;
-                vault: DecryptedVault;
-            },
-        ): VaultDiff[] => {
-            const vaultDiffs: VaultDiff[] = [];
-
-            for (const environmentName in left.vault) {
-                if (processedEnvs.has(environmentName)) {
-                    continue;
-                }
-
-                if (!right.vault[environmentName]) {
-                    vaultDiffs.push({ type: 'environment-diff', environmentName, fileName: left.fileName, vaultInfo: left.vault[environmentName] });
-                    processedEnvs.add(environmentName);
-                    continue;
-                }
-
-                if (!left.vault[environmentName].decrypted) {
-                    failWithEncryptedFotEnvError({
-                        message: `Missing decryption key for environment. ${environmentName} from ${ENV_VAULT_FILE_NAME} could not be decrypted.`,
-                        errorCode: EncryptedDotEnvErrorCodes.MISSING_DECRYPTION_KEY_FOR_ENVIRONMENT,
-                    });
-                }
-
-                if (!right.vault[environmentName].decrypted) {
-                    failWithEncryptedFotEnvError({
-                        message: `Missing decryption key for environment. ${environmentName} from ${ENV_VAULT_BACKUP_FILE_NAME} could not be decrypted.`,
-                        errorCode: EncryptedDotEnvErrorCodes.MISSING_DECRYPTION_KEY_FOR_ENVIRONMENT,
-                    });
-                }
-
-                const leftVaultData = left.vault[environmentName].data ?? {};
-                const rightVaultData = right.vault[environmentName].data ?? {};
-
-                const commonEnvVars = intersection(Object.keys(leftVaultData), Object.keys(rightVaultData));
-                for (const envVarName of commonEnvVars) {
-                    if (isEqual(leftVaultData[envVarName], rightVaultData[envVarName])) {
-                        continue;
-                    }
-                    vaultDiffs.push({
-                        type: 'env-var-diff',
-                        environmentName,
-                        envVarName,
-                        left: { fileName: left.fileName, value: leftVaultData[envVarName] },
-                        right: { fileName: right.fileName, value: rightVaultData[envVarName] },
-                    });
-                }
-
-                const leftExtraEnvVars = difference(Object.keys(leftVaultData), Object.keys(rightVaultData));
-                for (const envVarName of leftExtraEnvVars) {
-                    vaultDiffs.push({
-                        type: 'env-var-diff',
-                        environmentName,
-                        envVarName,
-                        left: { fileName: left.fileName, value: leftVaultData[envVarName] },
-                        right: { fileName: right.fileName, value: `` },
-                    });
-                }
-                const rightExtraEnvVars = difference(Object.keys(rightVaultData), Object.keys(leftVaultData));
-                for (const envVarName of rightExtraEnvVars) {
-                    vaultDiffs.push({
-                        type: 'env-var-diff',
-                        environmentName,
-                        envVarName,
-                        left: { fileName: left.fileName, value: `` },
-                        right: { fileName: right.fileName, value: rightVaultData[envVarName] },
-                    });
-                }
-                processedEnvs.add(environmentName);
-            }
-
-            return vaultDiffs;
-        };
-
-        const allDiffs = [
-            ...getVaultDifference({ fileName: ENV_VAULT_FILE_NAME, vault: mainVault }, { fileName: ENV_VAULT_BACKUP_FILE_NAME, vault: backupVault }),
-            ...getVaultDifference({ fileName: ENV_VAULT_BACKUP_FILE_NAME, vault: backupVault }, { fileName: ENV_VAULT_FILE_NAME, vault: mainVault }),
-        ];
-
-        return {
-            mainVault,
-            diffs: [...allDiffs.filter((diff) => diff.type === 'environment-diff'), ...allDiffs.filter((diff) => diff.type !== 'environment-diff')],
-        };
     }
 }

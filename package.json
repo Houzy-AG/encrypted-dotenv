@@ -44,7 +44,6 @@
         "@types/jest": "~29.5.2",
         "@types/lodash": "~4.14.195",
         "@types/node": "~20.3.1",
-        "@types/rimraf": "^4.0.5",
         "@typescript-eslint/eslint-plugin": "~5.29.0",
         "@typescript-eslint/parser": "~5.29.0",
         "eslint": "~8.18.0",

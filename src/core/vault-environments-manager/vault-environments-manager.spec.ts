@@ -1,6 +1,6 @@
 import * as process from 'node:process';
 import { beforeEach, describe, expect, test } from '@jest/globals';
-import { isEqual, isObject, isString } from 'lodash';
+import { isEqual, isNil, isObject, isString } from 'lodash';
 import { createVaultEnvironmentsManager } from '../create-vault-environments-manager';
 import { defaultTestLogger } from '../logger/encrypted-env-logger';
 import {
@@ -203,7 +203,7 @@ describe(VaultEnvironmentsManager.name, () => {
             expect(process.env.VAR_TEST_LOCAL).toBe(`1`);
         });
 
-        test('should fail if there are more then one environment inside the vaul and we did not specify which environment to use', () => {
+        test('should fail if there are more then one environment inside the vault and we did not specify which environment to use', () => {
             createDotEnvTestFiles([
                 { fileName: `.env.local`, envVars: [`TEST_VAR_1=1`, `TEST_VAR_2=Lorem_ipsum`] },
                 { fileName: `.env.staging`, envVars: [`TEST_VAR_3=3`, `TEST_VAR_4=THIS_IS_THE_GOAT`] },
@@ -214,10 +214,71 @@ describe(VaultEnvironmentsManager.name, () => {
             try {
                 vaultEnvironmentsManager.configureProcessEnv();
             } catch (e) {
-                error = e;
+                error = { e };
             }
 
             expect(error).not.toBeNull();
         });
+
+        test('should fail if there are multiple environments and active environment decryption key is missing', () => {
+            createDotEnvTestFiles([
+                { fileName: `.env.local`, envVars: [`TEST_VAR_1=1`, `TEST_VAR_2=Lorem_ipsum`] },
+                { fileName: `.env.staging`, envVars: [`TEST_VAR_3=3`, `TEST_VAR_4=THIS_IS_THE_GOAT`] },
+            ]);
+            vaultEnvironmentsManager.reCreate();
+            createDotEnvTestFiles([{ fileName: '.env', envVars: [`ENVIRONMENT=testing`] }]);
+
+            let error: unknown = null;
+            try {
+                vaultEnvironmentsManager.configureProcessEnv();
+            } catch (e) {
+                error = { e };
+            }
+
+            expect(error).not.toBeNull();
+        });
+
+        test('should not fail if there is one decryption key', () => {
+            createDotEnvTestFiles([
+                { fileName: `.env.local`, envVars: [`TEST_VAR_1=1`, `TEST_VAR_2=Lorem_ipsum`] },
+                { fileName: `.env.staging`, envVars: [`TEST_VAR_3=3`, `TEST_VAR_4=THIS_IS_THE_GOAT`] },
+            ]);
+            vaultEnvironmentsManager.reCreate();
+
+            const vaultKeys = readTestFileContentAsEnvVars(`.env.keys`);
+            removeTestFile(`.env.keys`);
+            delete vaultKeys.VAULT_KEY_LOCAL;
+            createDotEnvTestFiles([
+                {
+                    fileName: `.env.keys`,
+                    envVars: Object.entries(vaultKeys).map(([key, value]) => `${key}=${value}`),
+                },
+            ]);
+
+            vaultEnvironmentsManager.configureProcessEnv();
+
+            expect(isNil(process.env.TEST_VAR_1)).toBe(true);
+            expect(isNil(process.env.TEST_VAR_2)).toBe(true);
+            expect(process.env.TEST_VAR_3).toBe(`3`);
+            expect(process.env.TEST_VAR_4).toBe(`THIS_IS_THE_GOAT`);
+        });
+
+        test('should add to process env just the env vars from the specified environment even if we have multiple encryption keys', () => {
+            createDotEnvTestFiles([
+                { fileName: `.env.local`, envVars: [`TEST_VAR_1=1`, `TEST_VAR_2=Lorem_ipsum`] },
+                { fileName: `.env.staging`, envVars: [`TEST_VAR_3=3`, `TEST_VAR_4=THIS_IS_THE_GOAT`] },
+            ]);
+            createDotEnvTestFiles([{ fileName: `.env`, envVars: [`ENVIRONMENT=staging`, `TEST_VAR_NUMBER_LOCAL_ENV=Lorem_ipsum`] }]);
+            vaultEnvironmentsManager.reCreate();
+
+            vaultEnvironmentsManager.configureProcessEnv();
+            expect(isNil(process.env.TEST_VAR_1)).toBe(true);
+            expect(isNil(process.env.TEST_VAR_2)).toBe(true);
+            expect(process.env.TEST_VAR_3).toBe(`3`);
+            expect(process.env.TEST_VAR_4).toBe(`THIS_IS_THE_GOAT`);
+            expect(process.env.TEST_VAR_NUMBER_LOCAL_ENV).toBe(`Lorem_ipsum`);
+        });
     });
+
+    describe(VaultEnvironmentsManager.prototype.mergeMainVaultWithBackup.name, () => {});
 });
