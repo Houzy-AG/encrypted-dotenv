@@ -74,12 +74,12 @@ yargs(hideBin(process.argv))
         },
     })
     .command({
-        command: `generate-new-key`,
-        describe: `Generates a new encryption key.\r\n The key can be used for encrypting a possible new environment.\r\n`,
-        handler: (): void => {
+        command: `add-missing-env-files [dotEnvFilesDirectory]`,
+        describe: `Adds missing .env.* files to vault.\r\n The key can be used for encrypting a possible new environment.\r\n`,
+        handler: (argv): void => {
             defaultLogger.info(`Encryption Key:`);
-            const vaultEnvironmentsManager = createVaultEnvironmentsManager({ dotEnvFilesDirectory: `` });
-            defaultLogger.info(vaultEnvironmentsManager.vaultKeysManager.generateNewVaultKey());
+            const vaultEnvironmentsManager = createVaultEnvironmentsManager({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
+            vaultEnvironmentsManager.addMissingEnvironments();
             defaultLogger.info(`Done`);
         },
     })

@@ -19,3 +19,14 @@ export interface VaultDifferenceOverview {
     mainVault: DecryptedVault;
     diffs: VaultDiff[];
 }
+
+export enum EnvironmentDiffOption {
+    Keep = 'Keep',
+    Discard = 'Discard',
+}
+
+export enum EnvVarDiffOption {
+    OtherBranch = 'OtherBranch',
+    CurrentBranch = 'CurrentBranch',
+    Discard = 'Discard',
+}

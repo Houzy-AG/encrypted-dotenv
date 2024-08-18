@@ -1,7 +1,6 @@
 import { parse } from 'dotenv';
 import { cloneDeep, difference, intersection, isEqual, pick } from 'lodash';
-import process from 'process';
-import { EnvironmentDiffOption, EnvVarDiffOption } from '../../cli/commands/merge-backup-with-main.command';
+import * as process from 'process';
 import { MergeConflictQuestion } from '../../cli/interactive-command-line-ui';
 import { mergeRecordsWithValues } from '../../utils';
 import { decryptData, encryptData } from '../encryption/encryption';
@@ -11,15 +10,15 @@ import { ENV_VAULT_BACKUP_FILE_NAME, ENV_VAULT_FILE_NAME, PossibleVaultFileNames
 import { mapDotEnvFileNameToEnvironmentName } from '../vault-file-system/map-dot-env-file-name-to-environment-name';
 import { VaultFileSystem } from '../vault-file-system/vault-file-system';
 import { VaultKeys, VaultKeysManager } from '../vault-keys-manager/vault-keys-manager';
-import { VaultDiff, VaultDifferenceOverview } from './vault-diff-types';
+import { EnvironmentDiffOption, EnvVarDiffOption, VaultDiff, VaultDifferenceOverview } from './vault-diff-types';
 import { DecryptedVault, EnvVaultJsonData } from './vault-types';
 
 export class VaultEnvironmentsManager {
-    private vaultFileSystem: VaultFileSystem;
-    public readonly vaultKeysManager: VaultKeysManager;
-    private logger: EncryptedEnvLogger;
-    private vaultFileName: string;
-    private vaultBackupFileName: string;
+    private readonly vaultKeysManager: VaultKeysManager;
+    private readonly vaultFileSystem: VaultFileSystem;
+    private readonly logger: EncryptedEnvLogger;
+    private readonly vaultFileName: string;
+    private readonly vaultBackupFileName: string;
 
     constructor({
         vaultFileSystem,
@@ -128,7 +127,7 @@ export class VaultEnvironmentsManager {
         return envVaultContentDecrypted;
     }
 
-    // => V2 api
+    // Public api
 
     public configureProcessEnv(): void {
         const unEncryptedEnvVars = this.vaultFileSystem.getEnvVarsFromSystem();
@@ -217,6 +216,11 @@ export class VaultEnvironmentsManager {
         this.reCreate();
     }
 
+    public addMissingEnvironments(): void {
+        this.vaultKeysManager.createKeysForMissingDotEnvFiles();
+        this.encryptDotEnvFiles();
+    }
+
     public async mergeMainVaultWithBackup(askUserToDecideOnMergeConflict: (options: MergeConflictQuestion) => Promise<string>): Promise<void> {
         const vaultDifferences = this.getDiffsWithBackup();
         const finalVault = cloneDeep(vaultDifferences.mainVault);
@@ -248,18 +252,18 @@ export class VaultEnvironmentsManager {
             const result = await askUserToDecideOnMergeConflict({
                 question: `[${diff.environmentName}]: Different values found for "${diff.envVarName}"`,
                 options: [
-                    { key: EnvVarDiffOption.Main, label: `${diff.left.value}` },
-                    { key: EnvVarDiffOption.Backup, label: `${diff.right.value}` },
+                    { key: EnvVarDiffOption.OtherBranch, label: `${diff.left.value}` },
+                    { key: EnvVarDiffOption.CurrentBranch, label: `${diff.right.value}` },
                     { key: EnvVarDiffOption.Discard, label: `Discard` },
                 ],
             });
 
             switch (result) {
-                case EnvVarDiffOption.Main:
+                case EnvVarDiffOption.OtherBranch:
                     finalVault[diff.environmentName].data ??= {};
                     finalVault[diff.environmentName].data![diff.envVarName] = diff.left.value;
                     break;
-                case EnvVarDiffOption.Backup:
+                case EnvVarDiffOption.CurrentBranch:
                     finalVault[diff.environmentName].data ??= {};
                     finalVault[diff.environmentName].data![diff.envVarName] = diff.right.value;
                     break;

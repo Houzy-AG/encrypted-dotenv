@@ -92,8 +92,12 @@ export class VaultFileSystem {
         } else {
             stringContent = JSON.stringify(content, null, 4);
         }
+        const filePath = path.join(this.dotEnvFilesDirectory, fileName);
+        if (fs.existsSync(filePath)) {
+            this.rmSync(filePath);
+        }
 
-        fs.writeFileSync(path.join(this.dotEnvFilesDirectory, fileName), stringContent);
+        fs.writeFileSync(filePath, stringContent);
     }
 
     public copyFile({ sourceFileName, destinationFileName }: CopyFileInput): void {
@@ -101,13 +105,13 @@ export class VaultFileSystem {
         if (fs.existsSync(destinationFilePath)) {
             fs.rmSync(destinationFilePath, { recursive: true, force: true });
         }
-        const fileName = path.join(this.dotEnvFilesDirectory, sourceFileName);
-        if (!fs.existsSync(fileName)) {
+        const sourceFilePath = path.join(this.dotEnvFilesDirectory, sourceFileName);
+        if (!fs.existsSync(sourceFilePath)) {
             this.logger.info(`Vault does not exist`);
             return;
         }
 
-        fs.copyFileSync(fileName, destinationFilePath);
+        fs.copyFileSync(sourceFilePath, destinationFilePath);
     }
 
     public readFileContent(filePath: string): string {

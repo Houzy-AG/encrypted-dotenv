@@ -15,7 +15,7 @@
     },
     "scripts": {
         "create:package": "npm run build && npm pack",
-        "test": "NODE_ENV=test jest",
+        "test": "NODE_ENV=test jest --runInBand",
         "build": "rimraf lib && tsc",
         "start": "rimraf lib && tsc-watch -p tsconfig.json --onSuccess \"npm run tsc:watch:build:success\"",
         "tsc:watch:build:success": "node --inspect lib/cli/cli.js -p 8081 --dot-env-files-directory=\"./src/dev-env-vault-dir-name\"",
@@ -44,6 +44,7 @@
         "@types/jest": "~29.5.2",
         "@types/lodash": "~4.14.195",
         "@types/node": "~20.3.1",
+        "@types/rimraf": "^4.0.5",
         "@typescript-eslint/eslint-plugin": "~5.29.0",
         "@typescript-eslint/parser": "~5.29.0",
         "eslint": "~8.18.0",

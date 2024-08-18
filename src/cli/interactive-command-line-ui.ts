@@ -2,13 +2,12 @@ import * as chalk from 'chalk';
 import * as inquirer from 'inquirer';
 import * as os from 'os';
 import { EncryptedEnvLogger } from '../core/logger/encrypted-env-logger';
-import { EnvVarDiffOption } from './commands/merge-backup-with-main.command';
 
 export enum MenuOption {
     EncryptEnvFiles = `1`,
     DecryptEnvFiles = `2`,
     PrintEnvVars = `3`,
-    GenerateKey = `4`,
+    AddMissingDotEnvFiles = `4`,
     RotateKeys = `5`,
     Recreate = `6`,
     CleanupExtraEnvFiles = `7`,
@@ -21,7 +20,7 @@ const menuLabels: Record<MenuOption, string> = {
     [MenuOption.EncryptEnvFiles]: 'Encrypt Env Files',
     [MenuOption.DecryptEnvFiles]: 'Decrypt Env Files',
     [MenuOption.PrintEnvVars]: 'Print Env Vars',
-    [MenuOption.GenerateKey]: 'Generate Key',
+    [MenuOption.AddMissingDotEnvFiles]: 'Add Missing Env files to vault',
     [MenuOption.RotateKeys]: 'Rotate Vault Keys',
     [MenuOption.Recreate]: 'Recreate Vault',
     [MenuOption.CleanupExtraEnvFiles]: 'Cleanup extra env files',

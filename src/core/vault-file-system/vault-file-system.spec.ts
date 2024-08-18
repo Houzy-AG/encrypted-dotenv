@@ -1,10 +1,8 @@
 import { test, describe, expect, beforeEach } from '@jest/globals';
-import { existsSync, readFileSync } from 'node:fs';
 import { EOL } from 'node:os';
-import { join } from 'node:path';
-import { isEqual, isObject, last } from 'lodash';
+import { isEqual, isObject } from 'lodash';
 import { defaultTestLogger } from '../logger/encrypted-env-logger';
-import { CreateDotEnvFile, createDotEnvTestFile, createDotEnvTestFiles, createTestFile } from '../test-utils/create-test-file';
+import { CreateDotEnvFile, createDotEnvTestFiles, createTestFile, existsTestFile, readTestFileContent } from '../test-utils/create-test-file';
 import { setupTests, DOT_ENV_FILES_DIRECTORY_FOR_TESTING } from '../test-utils/setup-tests';
 import { VaultFileSystem } from './vault-file-system';
 
@@ -42,12 +40,7 @@ describe(VaultFileSystem.name, () => {
 
             const result = vaultFileSystem.findDotEnvFiles();
 
-            expect(result).toEqual(
-                filesList.map((item) => ({
-                    path: item.fileName,
-                    fileName: last(item.fileName.split('/')),
-                })),
-            );
+            expect(filesList.map((item) => item.fileName)).toEqual(result.map((item) => item.fileName));
         });
     });
 
@@ -58,10 +51,12 @@ describe(VaultFileSystem.name, () => {
         });
 
         test('should return env vars from .env if there is a .env file', () => {
-            createDotEnvTestFile({
-                fileName: `.env`,
-                envVars: [`TEST_ENV_VAR=some-env-var`],
-            });
+            createDotEnvTestFiles([
+                {
+                    fileName: `.env`,
+                    envVars: [`TEST_ENV_VAR=some-env-var`],
+                },
+            ]);
 
             const envVarsFromSystem = vaultFileSystem.getEnvVarsFromSystem();
             expect(envVarsFromSystem?.TEST_ENV_VAR).toBe(`some-env-var`);
@@ -70,10 +65,12 @@ describe(VaultFileSystem.name, () => {
 
     describe(VaultFileSystem.prototype.parseEnvVarsFromFile.name, () => {
         test(`should parse env vars variables from some env file`, () => {
-            createDotEnvTestFile({
-                fileName: `.env.test`,
-                envVars: [`TEST_ENV_VAR=some-env-var`],
-            });
+            createDotEnvTestFiles([
+                {
+                    fileName: `.env.test`,
+                    envVars: [`TEST_ENV_VAR=some-env-var`],
+                },
+            ]);
             const envVars = vaultFileSystem.parseEnvVarsFromFile(`.env.test`);
             expect(envVars.TEST_ENV_VAR).toBe(`some-env-var`);
         });
@@ -106,7 +103,7 @@ describe(VaultFileSystem.name, () => {
                 fileName: `test-file.json`,
                 fileContent: JSON.stringify(testJSON),
             });
-            const jsonContent = vaultFileSystem.readJson(`this_file_does_not_exist`);
+            const jsonContent = vaultFileSystem.readJson(`test-file.json`);
             expect(isEqual(jsonContent, testJSON)).toBe(true);
         });
     });
@@ -116,26 +113,51 @@ describe(VaultFileSystem.name, () => {
             const fileName = `test_file_name`;
             const testContent = `Lorem Ipsum`;
             vaultFileSystem.writeFile({ fileName, content: testContent });
-            expect(existsSync(join(DOT_ENV_FILES_DIRECTORY_FOR_TESTING, fileName))).toBe(true);
-            expect(readFileSync(join(DOT_ENV_FILES_DIRECTORY_FOR_TESTING, fileName).toString())).toBe(testContent);
+            expect(existsTestFile(fileName)).toBe(true);
+            expect(readTestFileContent(fileName)).toBe(testContent);
         });
 
         test(`should create a file with the content separated by newlines if the content is a string array`, () => {
             const fileName = `test_file_name`;
             const testContent = [`Lorem Ipsum`, `Lorem Ipsum 2`, `Lorem Ipsum 3`];
             vaultFileSystem.writeFile({ fileName, content: testContent });
-            expect(existsSync(join(DOT_ENV_FILES_DIRECTORY_FOR_TESTING, fileName))).toBe(true);
-            expect(readFileSync(join(DOT_ENV_FILES_DIRECTORY_FOR_TESTING, fileName).toString())).toBe(testContent.join(EOL));
+            expect(existsTestFile(fileName)).toBe(true);
+            expect(readTestFileContent(fileName)).toBe(testContent.join(EOL));
         });
 
         test(`should create a file with a json object if content is a json object`, () => {
             const fileName = `test_file_name`;
             const testContent = ['test', { key1: 'value' }];
             vaultFileSystem.writeFile({ fileName, content: testContent });
-            expect(existsSync(join(DOT_ENV_FILES_DIRECTORY_FOR_TESTING, fileName))).toBe(true);
-            expect(readFileSync(join(DOT_ENV_FILES_DIRECTORY_FOR_TESTING, fileName).toString())).toBe(JSON.stringify(testContent, null, 4));
+            expect(existsTestFile(fileName)).toBe(true);
+            expect(readTestFileContent(fileName)).toBe(JSON.stringify(testContent, null, 4));
         });
     });
 
-    describe(VaultFileSystem.prototype.copyFile.name, () => {});
+    describe(VaultFileSystem.prototype.copyFile.name, () => {
+        test('should not fail if source file does not exist', () => {
+            vaultFileSystem.copyFile({ sourceFileName: 'this-file-does-not-exist', destinationFileName: 'test.dest' });
+
+            expect(existsTestFile('test.dest')).toBe(false);
+        });
+
+        test('should copy the source file content into the destination file', () => {
+            createTestFile({ fileName: `some-test-file`, fileContent: `Lorem Ipsum` });
+
+            vaultFileSystem.copyFile({ sourceFileName: 'some-test-file', destinationFileName: 'test.dest' });
+
+            expect(existsTestFile('test.dest')).toBe(true);
+            expect(readTestFileContent('test.dest')).toBe(`Lorem Ipsum`);
+        });
+
+        test('should override the destination file if it exists', () => {
+            createTestFile({ fileName: `some-test-file`, fileContent: `Lorem Ipsum` });
+            createTestFile({ fileName: `test.dest`, fileContent: `Some Random content` });
+
+            vaultFileSystem.copyFile({ sourceFileName: 'some-test-file', destinationFileName: 'test.dest' });
+
+            expect(existsTestFile('test.dest')).toBe(true);
+            expect(readTestFileContent('test.dest')).toBe(`Lorem Ipsum`);
+        });
+    });
 });

@@ -28,16 +28,14 @@ const run = async (): Promise<void> => {
             vaultEnvironmentsManager.configureProcessEnv();
             defaultLogger.info(JSON.stringify(process.env, null, 4));
         },
-        [MenuOption.GenerateKey]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
-            defaultLogger.info(vaultEnvironmentsManager.vaultKeysManager.generateNewVaultKey());
-            interactiveCli.printSuccess();
+        [MenuOption.AddMissingDotEnvFiles]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
+            vaultEnvironmentsManager.addMissingEnvironments();
         },
         [MenuOption.RotateKeys]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
             vaultEnvironmentsManager.rotateEncryptionKeys();
         },
         [MenuOption.Recreate]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
             vaultEnvironmentsManager.reCreate();
-            interactiveCli.printSuccess();
         },
         [MenuOption.CleanupExtraEnvFiles]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
             vaultEnvironmentsManager.removeDotEnvFiles();
