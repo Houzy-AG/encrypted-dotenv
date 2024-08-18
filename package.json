@@ -18,7 +18,7 @@
         "test": "NODE_ENV=test jest --runInBand",
         "build": "rimraf lib && tsc",
         "start": "rimraf lib && tsc-watch -p tsconfig.json --onSuccess \"npm run tsc:watch:build:success\"",
-        "tsc:watch:build:success": "node --inspect lib/cli/cli.js -p 8081 --dot-env-files-directory=\"./src/dev-env-vault-dir-name\"",
+        "tsc:watch:build:success": "node --inspect lib/cli/cli.js -p 8081 --dot-env-files-directory=\"./src/env-vault-playground-files\"",
         "lint": "prettier --check \"{src,apps,libs,test}/**/*.ts\" && eslint \"{src,apps,libs,test}/**/*.ts\"",
         "lint:fix": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
         "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

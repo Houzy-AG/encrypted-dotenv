@@ -1,8 +1,8 @@
 export enum EncryptedDotEnvErrorCodes {
-    FAILED_TO_IDENTIFY_ACTIVE_ENVIRONMENT = `FAILED_TO_IDENTIFY_ACTIVE_ENVIRONMENT`,
-    FAILED_TO_IDENTIFY_DECRYPTION_KEY_FOR_ACTIVE_ENVIRONMENT = `FAILED_TO_IDENTIFY_DECRYPTION_KEY_FOR_ACTIVE_ENVIRONMENT`,
-    FAILED_TO_DECRYPT_ENVIRONMENT_INVALID_DECRYPTION_KEY = `FAILED_TO_DECRYPT_ENVIRONMENT_INVALID_DECRYPTION_KEY`,
-    MISSING_DECRYPTION_KEY_FOR_ENVIRONMENT = `MISSING_DECRYPTION_KEY_FOR_ENVIRONMENT`,
+    FailedToIdentifyActiveEnvironment = `FAILED_TO_IDENTIFY_ACTIVE_ENVIRONMENT`,
+    FailedToIdentifyDecryptionKeyForActiveEnvironment = `FAILED_TO_IDENTIFY_DECRYPTION_KEY_FOR_ACTIVE_ENVIRONMENT`,
+    FailedToIdentifyDecryptEnvironmentInvalidDecryptionKey = `FAILED_TO_DECRYPT_ENVIRONMENT_INVALID_DECRYPTION_KEY`,
+    MissingDecryptionKeyForEnvironment = `MISSING_DECRYPTION_KEY_FOR_ENVIRONMENT`,
 }
 
 type Props = { message: string; cause?: Error; errorCode: string } & Record<string, unknown>;
@@ -17,7 +17,7 @@ export class EncryptedDotEnvError extends Error implements Props {
         this.name = `EncryptedDotEnvError`;
         this.errorCode = props.errorCode;
 
-        for (let key in props) {
+        for (const key in props) {
             this[key] = props[key];
         }
     }

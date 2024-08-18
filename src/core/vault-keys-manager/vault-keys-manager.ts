@@ -35,7 +35,7 @@ export class VaultKeysManager {
             >;
         };
 
-        let encryptionDecryptionKeys = filterEncryptionKeysFromEnvVars(
+        const encryptionDecryptionKeys = filterEncryptionKeysFromEnvVars(
             mergeRecordsWithValues([this.vaultFileSystem.getEnvVarsFromSystem(), this.vaultFileSystem.parseEnvVarsFromFile(ENV_KEYS_FILE_NAME)]),
         );
 

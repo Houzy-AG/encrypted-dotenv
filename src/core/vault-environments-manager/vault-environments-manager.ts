@@ -6,7 +6,7 @@ import { mergeRecordsWithValues } from '../../utils';
 import { decryptData, encryptData } from '../encryption/encryption';
 import { EncryptedDotEnvErrorCodes, failWithEncryptedFotEnvError } from '../errors/encrypted-dot-env-error';
 import { EncryptedEnvLogger } from '../logger/encrypted-env-logger';
-import { ENV_VAULT_BACKUP_FILE_NAME, ENV_VAULT_FILE_NAME, PossibleVaultFileNames } from '../vault-file-system/consts';
+import { ENV_VAULT_BACKUP_FILE_NAME, ENV_VAULT_FILE_NAME } from '../vault-file-system/consts';
 import { mapDotEnvFileNameToEnvironmentName } from '../vault-file-system/map-dot-env-file-name-to-environment-name';
 import { VaultFileSystem } from '../vault-file-system/vault-file-system';
 import { VaultKeys, VaultKeysManager } from '../vault-keys-manager/vault-keys-manager';
@@ -40,7 +40,7 @@ export class VaultEnvironmentsManager {
         return this.vaultFileSystem.readJson<EnvVaultJsonData>(this.vaultFileName) as EnvVaultJsonData;
     }
 
-    private saveVaultData(data: { type: 'EnvVaultJsonData'; content: EnvVaultJsonData } | { type: 'DecryptedVault'; content: DecryptedVault }) {
+    private saveVaultData(data: { type: 'EnvVaultJsonData'; content: EnvVaultJsonData } | { type: 'DecryptedVault'; content: DecryptedVault }): void {
         let envVaultJsonData: EnvVaultJsonData = {};
 
         if (data.type === 'EnvVaultJsonData') {
@@ -54,7 +54,7 @@ export class VaultEnvironmentsManager {
         this.vaultFileSystem.writeFile({ fileName: this.vaultFileName, content: envVaultJsonData });
     }
 
-    private decryptEnvironmentOrDefault(environmentName: string) {
+    private decryptEnvironmentOrDefault(environmentName: string): Record<string, string> {
         const encryptionKeys = this.vaultKeysManager.readEncryptionKeys();
         if (!Object.keys(encryptionKeys).length && !environmentName?.length) {
             // There are no vault keys and there is no environment set so we do not need to decrypt anything.
@@ -71,15 +71,15 @@ export class VaultEnvironmentsManager {
         if (isNil(environmentNameToBeDecrypted)) {
             failWithEncryptedFotEnvError({
                 message: `No environment was specified to be decrypted`,
-                errorCode: EncryptedDotEnvErrorCodes.FAILED_TO_IDENTIFY_ACTIVE_ENVIRONMENT,
+                errorCode: EncryptedDotEnvErrorCodes.FailedToIdentifyActiveEnvironment,
             });
         }
 
-        const environmentNameToDecrypt = environmentNameToBeDecrypted!;
+        const environmentNameToDecrypt = environmentNameToBeDecrypted as string;
         if (!encryptionKeys?.[environmentNameToDecrypt]) {
             failWithEncryptedFotEnvError({
                 message: `No decryption key found for environment: "${environmentNameToDecrypt}"`,
-                errorCode: EncryptedDotEnvErrorCodes.FAILED_TO_IDENTIFY_DECRYPTION_KEY_FOR_ACTIVE_ENVIRONMENT,
+                errorCode: EncryptedDotEnvErrorCodes.FailedToIdentifyDecryptionKeyForActiveEnvironment,
             });
         }
 
@@ -88,7 +88,7 @@ export class VaultEnvironmentsManager {
         if (!decryptedEnvironments.length) {
             failWithEncryptedFotEnvError({
                 message: [`Failed to decrypt ENVIRONMENT: "${environmentNameToDecrypt}".`, `Check your decryption key`].join(' '),
-                errorCode: EncryptedDotEnvErrorCodes.FAILED_TO_DECRYPT_ENVIRONMENT_INVALID_DECRYPTION_KEY,
+                errorCode: EncryptedDotEnvErrorCodes.FailedToIdentifyDecryptEnvironmentInvalidDecryptionKey,
             });
         }
 
@@ -159,14 +159,14 @@ export class VaultEnvironmentsManager {
                 if (!left.vault[environmentName].decrypted) {
                     failWithEncryptedFotEnvError({
                         message: `Missing decryption key for environment. ${environmentName} from ${ENV_VAULT_FILE_NAME} could not be decrypted.`,
-                        errorCode: EncryptedDotEnvErrorCodes.MISSING_DECRYPTION_KEY_FOR_ENVIRONMENT,
+                        errorCode: EncryptedDotEnvErrorCodes.MissingDecryptionKeyForEnvironment,
                     });
                 }
 
                 if (!right.vault[environmentName].decrypted) {
                     failWithEncryptedFotEnvError({
                         message: `Missing decryption key for environment. ${environmentName} from ${ENV_VAULT_BACKUP_FILE_NAME} could not be decrypted.`,
-                        errorCode: EncryptedDotEnvErrorCodes.MISSING_DECRYPTION_KEY_FOR_ENVIRONMENT,
+                        errorCode: EncryptedDotEnvErrorCodes.MissingDecryptionKeyForEnvironment,
                     });
                 }
 
@@ -259,7 +259,7 @@ export class VaultEnvironmentsManager {
         const allDotEnvFiles = this.vaultFileSystem.findDotEnvFiles();
         const vaultData = this.decryptEnvironmentsVault({ encryptionKeysByEnvironment: encryptionKeys });
 
-        for (let { path, fileName } of allDotEnvFiles) {
+        for (const { path, fileName } of allDotEnvFiles) {
             const environmentName = mapDotEnvFileNameToEnvironmentName(fileName);
             if (!environmentName || !encryptionKeys[environmentName]) {
                 this.logger.info(`${fileName} Not removed encryption key is missing`);
@@ -358,10 +358,12 @@ export class VaultEnvironmentsManager {
             switch (result) {
                 case EnvVarDiffOption.OtherBranch:
                     finalVault[diff.environmentName].data ??= {};
+                    // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
                     finalVault[diff.environmentName].data![diff.envVarName] = diff.left.value;
                     break;
                 case EnvVarDiffOption.CurrentBranch:
                     finalVault[diff.environmentName].data ??= {};
+                    // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
                     finalVault[diff.environmentName].data![diff.envVarName] = diff.right.value;
                     break;
             }
