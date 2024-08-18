@@ -1,21 +1,26 @@
-import { TestFilesLocator } from '../test-files/test-files-locator';
 import { configure } from './configure';
 import { describe, expect, it } from '@jest/globals';
 import { EncryptedDotEnvError, EncryptedDotEnvErrorCodes } from './errors/encrypted-dot-env-error';
 import * as process from 'node:process';
 import { defaultTestLogger } from './logger/encrypted-env-logger';
-import { setupProcessEnvForTest } from './test-utils/setupProcessEnvForTest';
+import { createDotEnvTestFile } from './test-utils/create-test-file';
+import { DOT_ENV_FILES_DIRECTORY_FOR_TESTING, setupTests } from './test-utils/setup-tests';
 
-setupProcessEnvForTest();
+setupTests();
 
 describe(`configure`, () => {
     it(`should decrypt the current environment when there is one decryption key`, () => {
+        createDotEnvTestFile({
+            fileName: `.env.local`,
+            envVars: [`TEST_VAR=some-random-var`],
+        });
+
         configure({
-            dotEnvFilesDirectory: TestFilesLocator.only_one_decryption_key,
+            dotEnvFilesDirectory: DOT_ENV_FILES_DIRECTORY_FOR_TESTING,
             logger: defaultTestLogger,
         });
 
-        expect(process.env.TEST_VAR?.length).toBeDefined();
+        expect(process.env.TEST_VAR).toBe(`some-random-var`);
     });
 
     it(`should fail to decrypt the environment if there is more than one decryption key specified`, () => {
