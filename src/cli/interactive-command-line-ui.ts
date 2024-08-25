@@ -6,7 +6,7 @@ import { EncryptedEnvLogger } from '../core/logger/encrypted-env-logger';
 export enum MenuOption {
     EncryptEnvFiles = `1`,
     DecryptEnvFiles = `2`,
-    AddMissingDotEnvFiles = `3`,
+    AddMissingEnvFiles = `3`,
     BackupVault = `4`,
     MergeEnvVaults = `5`,
     CleanupExtraEnvFiles = `6`,
@@ -20,7 +20,7 @@ const menuLabels: Record<MenuOption, string> = {
     [MenuOption.EncryptEnvFiles]: 'Encrypt Env Files',
     [MenuOption.DecryptEnvFiles]: 'Decrypt Env Files',
     [MenuOption.PrintEnvVars]: 'Print Env Vars',
-    [MenuOption.AddMissingDotEnvFiles]: 'Add Missing Env files to vault',
+    [MenuOption.AddMissingEnvFiles]: 'Add Missing Env files to vault',
     [MenuOption.RotateKeys]: 'Rotate Vault Keys',
     [MenuOption.Recreate]: 'Recreate Vault',
     [MenuOption.CleanupExtraEnvFiles]: 'Cleanup extra env files',

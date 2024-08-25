@@ -84,7 +84,7 @@ yargs(hideBin(process.argv))
         },
     })
     .command({
-        command: `cleanup-env-files [dotEnvFilesDirectory]`,
+        command: `cleanup-extra-env-files [dotEnvFilesDirectory]`,
         describe: `Cleanup extra env files.\r\n The key can be used for deleting all .env.* files.\r\n`,
         handler: (argv): void => {
             const vaultEnvironmentsManager = createVaultEnvironmentsManager({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });
@@ -93,7 +93,7 @@ yargs(hideBin(process.argv))
         },
     })
     .command({
-        command: `backup-vault [dotEnvFilesDirectory]`,
+        command: `backup [dotEnvFilesDirectory]`,
         describe: `Create a backup copy of env vault.\r\n This can be used before merging remote branches.\r\n`,
         handler: (argv): void => {
             const vaultEnvironmentsManager = createVaultEnvironmentsManager({ dotEnvFilesDirectory: argv.dotEnvFilesDirectory });

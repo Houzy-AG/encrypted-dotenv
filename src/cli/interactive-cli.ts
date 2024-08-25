@@ -28,7 +28,7 @@ const run = async (): Promise<void> => {
             vaultEnvironmentsManager.configureProcessEnv();
             defaultLogger.info(JSON.stringify(process.env, null, 4));
         },
-        [MenuOption.AddMissingDotEnvFiles]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
+        [MenuOption.AddMissingEnvFiles]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
             vaultEnvironmentsManager.addMissingEnvironments();
         },
         [MenuOption.RotateKeys]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {

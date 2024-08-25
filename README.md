@@ -22,9 +22,18 @@ As a cli you can use it with commands see `npx encrypted-dotenv --help`. Or you 
     -   For example if we had `.env.local` and `.env.production` + the keys to encrypt them we will reverse the process back from the vault
 -   `Print environment variables`
     -   It parses the current environment end prints what will process.env contain
--   `Generate Key`
-    -   Generates a new encryption key which can be used to add a new environment.
-    -   When you already have a vault, and you want to add a new environment you can generate a new key, create a new variable with the key for your new `.env.*` and then you can use `Encrypt Env Files` to add the new environment to the vault
+-   `Add Missing Env Files`
+    -   Looks on your directory to see what .env.* files are there and are not present in the vault
+    -   Adds new encryption keys for the env files
+    -   Encrypts the files and adds them to the vault
+-   `Cleanup Extra Env Files`
+    -   Remove all .env.* files which can be decrypted
+-   `Backup Vault`
+    -   Creates a backup copy of `.env-vault.json` named `.env-vault-backup.json`
+    -   This copy is useful if you want to execute a merge operation with a remote branch and you know `.env-vault.json` will have conflicts
+-   `Merge Env Vaults`
+    -   If you created a `.env-vault-backup.json` you can execute a merge between it and  `.env-vault.json`
+    -   The merge process will walk you through all the diffs of the env files and you will have to chose what you keep
 
 ### Install the package
 
