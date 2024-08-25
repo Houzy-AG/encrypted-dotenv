@@ -26,7 +26,7 @@ export enum EnvironmentDiffOption {
 }
 
 export enum EnvVarDiffOption {
-    OtherBranch = 'OtherBranch',
-    CurrentBranch = 'CurrentBranch',
+    RemoteValue = 'RemoteValue',
+    LocalValue = 'LocalValue',
     Discard = 'Discard',
 }

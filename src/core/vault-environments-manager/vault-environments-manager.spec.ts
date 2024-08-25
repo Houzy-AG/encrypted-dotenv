@@ -1,19 +1,23 @@
-import * as process from 'node:process';
 import { beforeEach, describe, expect, test } from '@jest/globals';
-import { isEqual, isNil, isObject, isString } from 'lodash';
+import { isEqual, isNil, isObject, isString, remove } from 'lodash';
+import * as os from 'node:os';
+import * as process from 'node:process';
 import { createVaultEnvironmentsManager } from '../create-vault-environments-manager';
 import { defaultTestLogger } from '../logger/encrypted-env-logger';
 import {
     createDotEnvTestFiles,
+    createTestFile,
     existsTestFile,
-    readTestFileContentAsEnvVars,
     readTestFileContent,
+    readTestFileContentAsEnvVars,
     readTestFileContentAsJson,
     removeTestFile,
 } from '../test-utils/create-test-file';
 import { DOT_ENV_FILES_DIRECTORY_FOR_TESTING, setupTests } from '../test-utils/setup-tests';
+import { ENV_VAULT_FILE_NAME } from '../vault-file-system/consts';
+import { EnvironmentDiffOption, EnvVarDiffOption } from './vault-diff-types';
 
-import { VaultEnvironmentsManager } from './vault-environments-manager';
+import { AskForConflictFunction, VaultEnvironmentsManager } from './vault-environments-manager';
 
 setupTests();
 
@@ -280,5 +284,258 @@ describe(VaultEnvironmentsManager.name, () => {
         });
     });
 
-    describe(VaultEnvironmentsManager.prototype.mergeMainVaultWithBackup.name, () => {});
+    describe(VaultEnvironmentsManager.prototype.mergeMainVaultWithBackup.name, () => {
+        test('it should ask for changes when env vault has conflicts', async () => {
+            // ==== Arrange ====
+            // Create a vault
+            createDotEnvTestFiles([
+                { fileName: `.env.local`, envVars: [`TEST_VAR_1=1`, `TEST_VAR_2=Lorem_ipsum`] },
+                { fileName: `.env.staging`, envVars: [`TEST_VAR_3=3`, `TEST_VAR_4=THIS_IS_THE_GOAT`] },
+            ]);
+            vaultEnvironmentsManager.reCreate();
+            // Set up the backup file
+            vaultEnvironmentsManager.backup();
+            // Create simulate a merge conflict where `.env-vault.json` chose to take remote values.
+            createDotEnvTestFiles([{ fileName: `.env.local`, envVars: [`TEST_VAR_1=Remote_branch_VAR_1`, `TEST_VAR_2=Lorem_ipsum_2_VAR_2`] }]);
+            vaultEnvironmentsManager.encryptDotEnvFiles();
+
+            // Mock askForConflict function
+            const askForConflictFunction: AskForConflictFunction = async ({ question, options }) => {
+                if (question === `[LOCAL]: Different values found for "TEST_VAR_1"`) {
+                    return options.find((item) => item.optionValue === EnvVarDiffOption.RemoteValue)?.optionValue ?? EnvVarDiffOption.Discard;
+                }
+                if (question === `[LOCAL]: Different values found for "TEST_VAR_2"`) {
+                    return options.find((item) => item.optionValue === EnvVarDiffOption.LocalValue)?.optionValue ?? EnvVarDiffOption.Discard;
+                }
+
+                return EnvVarDiffOption.Discard;
+            };
+
+            // ==== Act ====
+            // Start the merge process
+            await vaultEnvironmentsManager.mergeMainVaultWithBackup(askForConflictFunction);
+
+            // ==== Assert ====
+            // verify merge was done correctly
+            vaultEnvironmentsManager.removeDotEnvFiles();
+            vaultEnvironmentsManager.decryptDotEnvFiles();
+
+            const envVars = readTestFileContentAsEnvVars(`.env.local`);
+            expect(envVars.TEST_VAR_1).toBe(`Remote_branch_VAR_1`);
+            expect(envVars.TEST_VAR_2).toBe(`Lorem_ipsum`);
+        });
+
+        test(`it should preserve comments if they are present in dot env file`, async () => {
+            // ==== Arrange ====
+            // Create a vault
+            createDotEnvTestFiles([
+                { fileName: `.env.local`, envVars: [`TEST_VAR_1=1`, `TEST_VAR_2=Lorem_ipsum`] },
+                { fileName: `.env.staging`, envVars: [`TEST_VAR_3=3`, `TEST_VAR_4=THIS_IS_THE_GOAT`] },
+            ]);
+            vaultEnvironmentsManager.reCreate();
+            // Set up the backup file
+            vaultEnvironmentsManager.backup();
+            vaultEnvironmentsManager.removeDotEnvFiles();
+            // Create simulate a merge conflict where `.env-vault.json` chose to take remote values.
+            createTestFile({
+                fileName: `.env.local`,
+                fileContent: [
+                    `# Comment Test one`,
+                    `TEST_VAR_1=Remote_branch_VAR_1`,
+                    `# Second comment for second var`,
+                    `TEST_VAR_2=Lorem_ipsum_2_VAR_2`,
+                ].join(os.EOL),
+            });
+            vaultEnvironmentsManager.encryptDotEnvFiles();
+
+            // Mock askForConflict function
+            const askForConflictFunction: AskForConflictFunction = async ({ question, options }) => {
+                if (question === `[LOCAL]: Different values found for "TEST_VAR_1"`) {
+                    return options.find((item) => item.optionValue === EnvVarDiffOption.RemoteValue)?.optionValue ?? EnvVarDiffOption.Discard;
+                }
+                if (question === `[LOCAL]: Different values found for "TEST_VAR_2"`) {
+                    return options.find((item) => item.optionValue === EnvVarDiffOption.LocalValue)?.optionValue ?? EnvVarDiffOption.Discard;
+                }
+
+                return EnvVarDiffOption.Discard;
+            };
+
+            // ==== Act ====
+            // Start the merge process
+            await vaultEnvironmentsManager.mergeMainVaultWithBackup(askForConflictFunction);
+
+            // ==== Assert ====
+            // verify merge was done correctly
+            vaultEnvironmentsManager.removeDotEnvFiles();
+            vaultEnvironmentsManager.decryptDotEnvFiles();
+
+            const envVars = readTestFileContentAsEnvVars(`.env.local`);
+            expect(envVars.TEST_VAR_1).toBe(`Remote_branch_VAR_1`);
+            expect(envVars.TEST_VAR_2).toBe(`Lorem_ipsum`);
+            const envLocal = readTestFileContent(`.env.local`);
+
+            expect(envLocal.includes(`# Comment Test one`)).toBe(true);
+            expect(envLocal.includes(`# Second comment for second var`)).toBe(true);
+        });
+
+        test(`it should keep discard env vars exactly how user specifies it`, async () => {
+            // ==== Arrange ====
+            // Create a vault
+            createDotEnvTestFiles([
+                { fileName: `.env.local`, envVars: [`TEST_VAR_1=1`, `TEST_VAR_2=Lorem_ipsum`] },
+                { fileName: `.env.staging`, envVars: [`TEST_VAR_3=3`, `TEST_VAR_4=THIS_IS_THE_GOAT`] },
+            ]);
+            vaultEnvironmentsManager.reCreate();
+            // Set up the backup file
+            vaultEnvironmentsManager.backup();
+            vaultEnvironmentsManager.removeDotEnvFiles();
+            // Create simulate a merge conflict where `.env-vault.json` chose to take remote values.
+            createTestFile({
+                fileName: `.env.local`,
+                fileContent: [
+                    `# Comment Test one`,
+                    `TEST_VAR_6=Remote_branch_VAR_1`,
+                    `# Second comment for second var`,
+                    `TEST_VAR_7=Lorem_ipsum_2_VAR_2`,
+                ].join(os.EOL),
+            });
+            vaultEnvironmentsManager.encryptDotEnvFiles();
+
+            // Mock askForConflict function
+            const askForConflictFunction: AskForConflictFunction = async ({ question, options }) => {
+                if (question === `[LOCAL]: Different values found for "TEST_VAR_1"`) {
+                    return options.find((item) => item.optionValue === EnvVarDiffOption.LocalValue)?.optionValue ?? EnvVarDiffOption.Discard;
+                }
+                if (question === `[LOCAL]: Different values found for "TEST_VAR_6"`) {
+                    return options.find((item) => item.optionValue === EnvVarDiffOption.RemoteValue)?.optionValue ?? EnvVarDiffOption.Discard;
+                }
+
+                return EnvVarDiffOption.Discard;
+            };
+            // ==== Act ====
+            // Start the merge process
+            await vaultEnvironmentsManager.mergeMainVaultWithBackup(askForConflictFunction);
+
+            // ==== Assert ====
+            // verify merge was done correctly
+            vaultEnvironmentsManager.removeDotEnvFiles();
+            vaultEnvironmentsManager.decryptDotEnvFiles();
+
+            const envVars = readTestFileContentAsEnvVars(`.env.local`);
+            expect(envVars.TEST_VAR_1).toBe(`1`);
+            expect(envVars.TEST_VAR_3).not.toBeDefined();
+            expect(envVars.TEST_VAR_6).toBe(`Remote_branch_VAR_1`);
+            expect(envVars.TEST_VAR_7).not.toBeDefined();
+            const envLocal = readTestFileContent(`.env.local`);
+
+            expect(envLocal.includes(`# Comment Test one`)).toBe(true);
+            expect(envLocal.includes(`# Second comment for second var`)).toBe(true);
+        });
+
+        test(`it should discard staging environment and keep local if user decides this`, async () => {
+            // ==== Arrange ====
+            // Create a vault
+            createDotEnvTestFiles([{ fileName: `.env.staging`, envVars: [`TEST_VAR_3=3`, `TEST_VAR_4=THIS_IS_THE_GOAT`] }]);
+            vaultEnvironmentsManager.reCreate();
+            // Set up the backup file
+            vaultEnvironmentsManager.backup();
+            vaultEnvironmentsManager.removeDotEnvFiles();
+            // Create simulate a merge conflict where `.env-vault.json` chose to take remote values.
+            createTestFile({
+                fileName: `.env.local`,
+                fileContent: [
+                    `# Comment Test one`,
+                    `TEST_VAR_6=Remote_branch_VAR_1`,
+                    `# Second comment for second var`,
+                    `TEST_VAR_7=Lorem_ipsum_2_VAR_2`,
+                ].join(os.EOL),
+            });
+            removeTestFile(ENV_VAULT_FILE_NAME);
+            vaultEnvironmentsManager.encryptDotEnvFiles();
+            vaultEnvironmentsManager.addMissingEnvironments();
+
+            // Mock askForConflict function
+            const askForConflictFunction: AskForConflictFunction = async ({ question }) => {
+                if (question === `[STAGING]: Environment exists only in file: .env-vault-backup.json`) {
+                    return EnvironmentDiffOption.Discard;
+                }
+                if (question === `[LOCAL]: Environment exists only in file: .env-vault.json`) {
+                    return EnvironmentDiffOption.Keep;
+                }
+                return EnvironmentDiffOption.Discard;
+            };
+            // ==== Act ====
+            // Start the merge process
+            await vaultEnvironmentsManager.mergeMainVaultWithBackup(askForConflictFunction);
+
+            // ==== Assert ====
+            // verify merge was done correctly
+            removeTestFile(`.env.staging`);
+            removeTestFile(`.env.local`);
+            vaultEnvironmentsManager.decryptDotEnvFiles();
+
+            expect(existsTestFile(`.env.staging`)).toBe(false);
+            expect(existsTestFile(`.env.local`)).toBe(true);
+            const envVars = readTestFileContentAsEnvVars(`.env.local`);
+            expect(envVars.TEST_VAR_4).not.toBeDefined();
+            expect(envVars.TEST_VAR_3).not.toBeDefined();
+            expect(envVars.TEST_VAR_6).toBe(`Remote_branch_VAR_1`);
+            expect(envVars.TEST_VAR_7).toBe(`Lorem_ipsum_2_VAR_2`);
+            const envLocal = readTestFileContent(`.env.local`);
+
+            expect(envLocal.includes(`# Comment Test one`)).toBe(true);
+            expect(envLocal.includes(`# Second comment for second var`)).toBe(true);
+        });
+
+        test(`it should discard local environment and keep staging if user decides this`, async () => {
+            // ==== Arrange ====
+            // Create a vault
+            createDotEnvTestFiles([{ fileName: `.env.staging`, envVars: [`TEST_VAR_3=3`, `TEST_VAR_4=THIS_IS_THE_GOAT`] }]);
+            vaultEnvironmentsManager.reCreate();
+            // Set up the backup file
+            vaultEnvironmentsManager.backup();
+            vaultEnvironmentsManager.removeDotEnvFiles();
+            // Create simulate a merge conflict where `.env-vault.json` chose to take remote values.
+            createTestFile({
+                fileName: `.env.local`,
+                fileContent: [
+                    `# Comment Test one`,
+                    `TEST_VAR_6=Remote_branch_VAR_1`,
+                    `# Second comment for second var`,
+                    `TEST_VAR_7=Lorem_ipsum_2_VAR_2`,
+                ].join(os.EOL),
+            });
+            removeTestFile(ENV_VAULT_FILE_NAME);
+            vaultEnvironmentsManager.encryptDotEnvFiles();
+            vaultEnvironmentsManager.addMissingEnvironments();
+
+            // Mock askForConflict function
+            const askForConflictFunction: AskForConflictFunction = async ({ question }) => {
+                if (question === `[STAGING]: Environment exists only in file: .env-vault-backup.json`) {
+                    return EnvironmentDiffOption.Keep;
+                }
+                if (question === `[LOCAL]: Environment exists only in file: .env-vault.json`) {
+                    return EnvironmentDiffOption.Discard;
+                }
+                return EnvironmentDiffOption.Discard;
+            };
+            // ==== Act ====
+            // Start the merge process
+            await vaultEnvironmentsManager.mergeMainVaultWithBackup(askForConflictFunction);
+
+            // ==== Assert ====
+            // verify merge was done correctly
+            removeTestFile(`.env.staging`);
+            removeTestFile(`.env.local`);
+            vaultEnvironmentsManager.decryptDotEnvFiles();
+
+            expect(existsTestFile(`.env.staging`)).toBe(true);
+            expect(existsTestFile(`.env.local`)).toBe(false);
+            const envVars = readTestFileContentAsEnvVars(`.env.staging`);
+            expect(envVars.TEST_VAR_4).toBe(`THIS_IS_THE_GOAT`);
+            expect(envVars.TEST_VAR_3).toBe(`3`);
+            expect(envVars.TEST_VAR_6).not.toBeDefined();
+            expect(envVars.TEST_VAR_7).not.toBeDefined();
+        });
+    });
 });

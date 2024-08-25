@@ -1,5 +1,6 @@
 import { parse } from 'dotenv';
 import { cloneDeep, difference, intersection, isEqual, isNil, pick } from 'lodash';
+import * as os from 'node:os';
 import * as process from 'process';
 import { MergeConflictQuestion } from '../../cli/interactive-command-line-ui';
 import { mergeRecordsWithValues } from '../../utils';
@@ -10,8 +11,12 @@ import { ENV_VAULT_BACKUP_FILE_NAME, ENV_VAULT_FILE_NAME } from '../vault-file-s
 import { mapDotEnvFileNameToEnvironmentName } from '../vault-file-system/map-dot-env-file-name-to-environment-name';
 import { VaultFileSystem } from '../vault-file-system/vault-file-system';
 import { VaultKeys, VaultKeysManager } from '../vault-keys-manager/vault-keys-manager';
+import { deleteEnvVarFromFile } from './utils/delete-env-var-from-file';
+import { replaceOrInsertEnvVarInFile } from './utils/replace-or-insert-env-var-in-file';
 import { EnvironmentDiffOption, EnvVarDiffOption, VaultDiff, VaultDifferenceOverview } from './vault-diff-types';
 import { DecryptedVault, EnvVaultJsonData } from './vault-types';
+
+export type AskForConflictFunction = (options: MergeConflictQuestion) => Promise<string>;
 
 export class VaultEnvironmentsManager {
     private readonly vaultKeysManager: VaultKeysManager;
@@ -36,8 +41,8 @@ export class VaultEnvironmentsManager {
         this.logger = logger;
     }
 
-    private readVaultData(): EnvVaultJsonData {
-        return this.vaultFileSystem.readJson<EnvVaultJsonData>(this.vaultFileName) as EnvVaultJsonData;
+    private readVaultData(vaultFileName?: string): EnvVaultJsonData {
+        return this.vaultFileSystem.readJson<EnvVaultJsonData>(vaultFileName || this.vaultFileName) as EnvVaultJsonData;
     }
 
     private saveVaultData(data: { type: 'EnvVaultJsonData'; content: EnvVaultJsonData } | { type: 'DecryptedVault'; content: DecryptedVault }): void {
@@ -95,8 +100,14 @@ export class VaultEnvironmentsManager {
         return decryptedEnvironments[0].data ?? {};
     }
 
-    private decryptEnvironmentsVault({ encryptionKeysByEnvironment }: { encryptionKeysByEnvironment: VaultKeys }): DecryptedVault {
-        const envVaultContent = this.readVaultData();
+    private decryptEnvironmentsVault({
+        encryptionKeysByEnvironment,
+        vaultFileName,
+    }: {
+        encryptionKeysByEnvironment: VaultKeys;
+        vaultFileName?: string;
+    }): DecryptedVault {
+        const envVaultContent = this.readVaultData(vaultFileName || this.vaultFileName);
 
         const envVaultContentDecrypted: DecryptedVault = {};
 
@@ -129,7 +140,7 @@ export class VaultEnvironmentsManager {
     private getDiffsWithBackup(): VaultDifferenceOverview {
         const envVaultKeys = this.vaultKeysManager.readEncryptionKeys();
         const mainVault = this.decryptEnvironmentsVault({ encryptionKeysByEnvironment: envVaultKeys });
-        const backupVault = this.decryptEnvironmentsVault({ encryptionKeysByEnvironment: envVaultKeys });
+        const backupVault = this.decryptEnvironmentsVault({ encryptionKeysByEnvironment: envVaultKeys, vaultFileName: this.vaultBackupFileName });
 
         const processedEnvs = new Set<string>([]);
 
@@ -266,7 +277,7 @@ export class VaultEnvironmentsManager {
                 continue;
             }
 
-            if (!vaultData[environmentName].decrypted) {
+            if (!vaultData[environmentName]?.decrypted) {
                 this.logger.info(`${fileName} Not removed because it cannot be decrypted from vault`);
                 continue;
             }
@@ -318,23 +329,28 @@ export class VaultEnvironmentsManager {
         this.encryptDotEnvFiles();
     }
 
-    public async mergeMainVaultWithBackup(askUserToDecideOnMergeConflict: (options: MergeConflictQuestion) => Promise<string>): Promise<void> {
+    public async mergeMainVaultWithBackup(askUserToDecideOnMergeConflict: AskForConflictFunction): Promise<void> {
         const vaultDifferences = this.getDiffsWithBackup();
+        const oldVault = cloneDeep(vaultDifferences.mainVault);
         const finalVault = cloneDeep(vaultDifferences.mainVault);
 
+        const toDeleteEnvVars: Record<string, string[]> = {};
         for (const diff of vaultDifferences.diffs) {
             if (diff.type === 'environment-diff') {
                 const result = await askUserToDecideOnMergeConflict({
                     question: `[${diff.environmentName}]: Environment exists only in file: ${diff.fileName}`,
                     options: [
-                        { key: EnvironmentDiffOption.Keep, label: `Keep` },
-                        { key: EnvironmentDiffOption.Discard, label: `Discard` },
+                        { optionValue: EnvironmentDiffOption.Keep, label: `Keep` },
+                        { optionValue: EnvironmentDiffOption.Discard, label: `Discard` },
                     ],
                 });
 
                 switch (result) {
                     case EnvironmentDiffOption.Keep:
                         finalVault[diff.environmentName] = diff.vaultInfo;
+                        break;
+                    case EnvironmentDiffOption.Discard:
+                        delete finalVault[diff.environmentName];
                         break;
                 }
                 continue;
@@ -349,24 +365,65 @@ export class VaultEnvironmentsManager {
             const result = await askUserToDecideOnMergeConflict({
                 question: `[${diff.environmentName}]: Different values found for "${diff.envVarName}"`,
                 options: [
-                    { key: EnvVarDiffOption.OtherBranch, label: `${diff.left.value}` },
-                    { key: EnvVarDiffOption.CurrentBranch, label: `${diff.right.value}` },
-                    { key: EnvVarDiffOption.Discard, label: `Discard` },
+                    { optionValue: EnvVarDiffOption.RemoteValue, label: `Remote Value -> ${diff.left.value}` },
+                    { optionValue: EnvVarDiffOption.LocalValue, label: `Local Value -> ${diff.right.value}` },
+                    { optionValue: EnvVarDiffOption.Discard, label: `Discard Both` },
                 ],
             });
+            finalVault[diff.environmentName].data ??= {};
+            toDeleteEnvVars[diff.environmentName] ??= [];
+            const vaultData = finalVault[diff.environmentName].data as Record<string, string | undefined>;
 
             switch (result) {
-                case EnvVarDiffOption.OtherBranch:
-                    finalVault[diff.environmentName].data ??= {};
-                    // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
-                    finalVault[diff.environmentName].data![diff.envVarName] = diff.left.value;
+                case EnvVarDiffOption.RemoteValue:
+                    vaultData[diff.envVarName] = diff.left.value;
                     break;
-                case EnvVarDiffOption.CurrentBranch:
-                    finalVault[diff.environmentName].data ??= {};
-                    // eslint-disable-next-line  @typescript-eslint/no-non-null-assertion
-                    finalVault[diff.environmentName].data![diff.envVarName] = diff.right.value;
+                case EnvVarDiffOption.LocalValue:
+                    vaultData[diff.envVarName] = diff.right.value;
+                    break;
+                default:
+                    toDeleteEnvVars[diff.environmentName].push(diff.envVarName);
+                    delete vaultData[diff.envVarName];
                     break;
             }
         }
+
+        const encryptionKeys = this.vaultKeysManager.readEncryptionKeys();
+        for (const environmentName in finalVault) {
+            const encryptionKey = encryptionKeys[environmentName];
+            if (isNil(encryptionKey)) {
+                continue;
+            }
+
+            let decryptedStringContent = finalVault[environmentName].decryptedStringContent;
+
+            for (const toDeleteEnvVarName of toDeleteEnvVars[environmentName] ?? []) {
+                decryptedStringContent = deleteEnvVarFromFile({
+                    envVarName: toDeleteEnvVarName,
+                    oldEnvVarValue: oldVault[environmentName]?.data?.[toDeleteEnvVarName] ?? ``,
+                    dotEnvFileContent: decryptedStringContent,
+                });
+            }
+
+            for (let envVarName in finalVault[environmentName].data ?? {}) {
+                const newEnvVarValue = finalVault[environmentName]?.data?.[envVarName] ?? ``;
+                decryptedStringContent = replaceOrInsertEnvVarInFile({
+                    envVarName,
+                    // The old env var value is can be in the old vault but if the env var was missing from the old vault then it's in the
+                    // final vault.
+                    oldEnvVarValue: oldVault[environmentName]?.data?.[envVarName] ?? newEnvVarValue,
+                    newEnvVarValue,
+                    dotEnvFileContent: decryptedStringContent,
+                });
+            }
+
+            finalVault[environmentName].decryptedStringContent = decryptedStringContent;
+            finalVault[environmentName].encryptedStringContent = encryptData({
+                data: decryptedStringContent,
+                ...encryptionKey,
+            });
+        }
+
+        this.saveVaultData({ type: 'DecryptedVault', content: finalVault });
     }
 }

@@ -6,13 +6,13 @@ import { EncryptedEnvLogger } from '../core/logger/encrypted-env-logger';
 export enum MenuOption {
     EncryptEnvFiles = `1`,
     DecryptEnvFiles = `2`,
-    PrintEnvVars = `3`,
-    AddMissingDotEnvFiles = `4`,
-    RotateKeys = `5`,
-    Recreate = `6`,
-    CleanupExtraEnvFiles = `7`,
-    BackupVault = `8`,
-    MergeEnvVaults = `9`,
+    AddMissingDotEnvFiles = `3`,
+    BackupVault = `4`,
+    MergeEnvVaults = `5`,
+    CleanupExtraEnvFiles = `6`,
+    PrintEnvVars = `7`,
+    RotateKeys = `8`,
+    Recreate = `9`,
     Exit = `10`,
 }
 
@@ -30,7 +30,7 @@ const menuLabels: Record<MenuOption, string> = {
 };
 
 export interface MergeQuestion {
-    key: string;
+    optionValue: string;
     label: string;
 }
 
@@ -88,7 +88,7 @@ export class InteractiveCommandLineUi {
         const option = await inquirer.prompt(questions);
         const item = options.find((optionInfo) => optionInfo.label === option.choseOption);
         if (item) {
-            return item.key;
+            return item.optionValue;
         }
         return this.askForAnswer(questionsInfo);
     }
