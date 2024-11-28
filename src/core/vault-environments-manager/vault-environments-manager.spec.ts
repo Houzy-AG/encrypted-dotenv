@@ -110,7 +110,7 @@ describe(VaultEnvironmentsManager.name, () => {
             test('vault content should change if any .env.* file changed', () => {
                 const envVaultContent = readTestFileContentAsJson(`.env-vault.json`);
 
-                createDotEnvTestFiles([{ fileName: `.env.local`, envVars: [`TEST_VAR_2=432423`, `TEST_VAR_2=Lorem_ipsum`, `SOME_VAR_3=22`] }]);
+                createDotEnvTestFiles([{ fileName: `.env.local`, envVars: [`TEST_VAR_2=432423`, `TEST_VAR_2="Lorem_#ipsum"`, `SOME_VAR_3=22`] }]);
 
                 vaultEnvironmentsManager.encryptDotEnvFiles();
                 expect(isEqual(envVaultContent, readTestFileContentAsJson(`.env-vault.json`))).toBe(false);
@@ -190,11 +190,11 @@ describe(VaultEnvironmentsManager.name, () => {
         });
 
         test(`should put .env file vars in process.env`, () => {
-            createDotEnvTestFiles([{ fileName: '.env', envVars: [`VAR_TEST=1`] }]);
+            createDotEnvTestFiles([{ fileName: '.env', envVars: [`VAR_TEST="#1"`] }]);
 
             vaultEnvironmentsManager.configureProcessEnv();
 
-            expect(process.env.VAR_TEST).toBe(`1`);
+            expect(process.env.VAR_TEST).toBe(`#1`);
         });
 
         test('should put env vars from vault if there is just one environment inside vault', () => {
