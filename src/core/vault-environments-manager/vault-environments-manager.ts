@@ -11,6 +11,7 @@ import { ENV_VAULT_BACKUP_FILE_NAME, ENV_VAULT_FILE_NAME } from '../vault-file-s
 import { mapDotEnvFileNameToEnvironmentName } from '../vault-file-system/map-dot-env-file-name-to-environment-name';
 import { VaultFileSystem } from '../vault-file-system/vault-file-system';
 import { VaultKeys, VaultKeysManager } from '../vault-keys-manager/vault-keys-manager';
+import { convertToString } from './utils/convert-to-string';
 import { deleteEnvVarFromFile } from './utils/delete-env-var-from-file';
 import { replaceOrInsertEnvVarInFile } from './utils/replace-or-insert-env-var-in-file';
 import { EnvironmentDiffOption, EnvVarDiffOption, VaultDiff, VaultDifferenceOverview } from './vault-diff-types';
@@ -52,7 +53,7 @@ export class VaultEnvironmentsManager {
             envVaultJsonData = data.content;
         } else if (data.type === 'DecryptedVault') {
             envVaultJsonData = Object.values(data.content).reduce((acc, { environmentName, encryptedStringContent }) => {
-                acc[environmentName] = encryptedStringContent;
+                acc[environmentName] = `"${convertToString(encryptedStringContent).replace(/(?<!\\)"/g, '\\"')}"`;
                 return acc;
             }, {} as EnvVaultJsonData);
         }
