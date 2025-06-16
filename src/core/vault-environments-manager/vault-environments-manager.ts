@@ -1,6 +1,5 @@
 import { parse } from 'dotenv';
 import { cloneDeep, difference, intersection, isEqual, isNil, pick } from 'lodash';
-import * as os from 'node:os';
 import * as process from 'process';
 import { MergeConflictQuestion } from '../../cli/interactive-command-line-ui';
 import { mergeRecordsWithValues } from '../../utils';
@@ -250,6 +249,16 @@ export class VaultEnvironmentsManager {
         }
     }
 
+    public configureLocalDotEnvFile(): void {
+        const unEncryptedEnvVars = this.vaultFileSystem.getEnvVarsFromSystem();
+
+        const correctEnvVars = mergeRecordsWithValues([
+            this.vaultFileSystem.getEnvVarsFromOverrides(),
+            this.decryptEnvironmentOrDefault((unEncryptedEnvVars.ENVIRONMENT ?? ``).toUpperCase()),
+        ]);
+        this.vaultFileSystem.writeDotEnvFile({ content: correctEnvVars, fileName: `.env` });
+    }
+
     public reCreate(): void {
         // Cleanup vault files
         this.vaultFileSystem.rmSync(this.vaultFileName);
@@ -406,7 +415,7 @@ export class VaultEnvironmentsManager {
                 });
             }
 
-            for (let envVarName in finalVault[environmentName].data ?? {}) {
+            for (const envVarName in finalVault[environmentName].data ?? {}) {
                 const newEnvVarValue = finalVault[environmentName]?.data?.[envVarName] ?? ``;
                 decryptedStringContent = replaceOrInsertEnvVarInFile({
                     envVarName,

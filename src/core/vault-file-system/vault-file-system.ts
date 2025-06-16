@@ -6,7 +6,13 @@ import * as process from 'node:process';
 import * as os from 'node:os';
 import { mergeRecordsWithValues } from '../../utils';
 import { EncryptedEnvLogger } from '../logger/encrypted-env-logger';
-import { ENV_KEYS_FILE_NAME, ENV_VAULT_BACKUP_FILE_NAME, ENV_VAULT_FILE_NAME, GENERAL_DOT_ENV_FILE_NAME } from './consts';
+import {
+    ALTERNATIVE_DOT_ENV_FILE_NAME,
+    ENV_KEYS_FILE_NAME,
+    ENV_VAULT_BACKUP_FILE_NAME,
+    ENV_VAULT_FILE_NAME,
+    GENERAL_DOT_ENV_FILE_NAME,
+} from './consts';
 
 interface FileDescriptor {
     path: string;
@@ -26,7 +32,13 @@ interface CopyFileInput {
     destinationFileName: string;
 }
 
-export const PROTECTED_FILE_NAMES = [GENERAL_DOT_ENV_FILE_NAME, ENV_KEYS_FILE_NAME, ENV_VAULT_FILE_NAME, ENV_VAULT_BACKUP_FILE_NAME];
+export const PROTECTED_FILE_NAMES = [
+    GENERAL_DOT_ENV_FILE_NAME,
+    ALTERNATIVE_DOT_ENV_FILE_NAME,
+    ENV_KEYS_FILE_NAME,
+    ENV_VAULT_FILE_NAME,
+    ENV_VAULT_BACKUP_FILE_NAME,
+];
 
 export class VaultFileSystem {
     private readonly dotEnvFilesDirectory: string;
@@ -53,7 +65,14 @@ export class VaultFileSystem {
 
     // Return all env variables inside `process.env` + `.env` file.
     public getEnvVarsFromSystem(): Record<string, string | undefined> {
-        return mergeRecordsWithValues([{ ...process.env }, this.parseEnvVarsFromFile(GENERAL_DOT_ENV_FILE_NAME)]);
+        return mergeRecordsWithValues([{ ...process.env }, this.getEnvVarsFromOverrides()]);
+    }
+
+    public getEnvVarsFromOverrides(): Record<string, string | undefined> {
+        return mergeRecordsWithValues([
+            this.parseEnvVarsFromFile(ALTERNATIVE_DOT_ENV_FILE_NAME),
+            this.parseEnvVarsFromFile(GENERAL_DOT_ENV_FILE_NAME),
+        ]);
     }
 
     public parseEnvVarsFromFile(fileName: string): Record<string, string | undefined> {
@@ -81,6 +100,20 @@ export class VaultFileSystem {
             this.logger.info(`File ${vaultFilePath} content could not be parsed as JSON`, e);
             return {};
         }
+    }
+
+    public writeDotEnvFile({ fileName, content }: { fileName: string; content: Record<string, unknown> }): void {
+        const filePath = path.join(this.dotEnvFilesDirectory, fileName);
+        if (fs.existsSync(filePath)) {
+            this.rmSync(filePath);
+        }
+
+        fs.writeFileSync(
+            filePath,
+            Object.entries(content)
+                .map(([key, value]) => `${key}="${value}"`)
+                .join(os.EOL),
+        );
     }
 
     public writeFile({ fileName, content }: WriteFileInput): void {

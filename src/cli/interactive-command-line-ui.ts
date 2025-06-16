@@ -13,7 +13,7 @@ export enum MenuOption {
     PrintEnvVars = `7`,
     RotateKeys = `8`,
     Recreate = `9`,
-    Exit = `10`,
+    Exit = `11`,
 }
 
 const menuLabels: Record<MenuOption, string> = {
