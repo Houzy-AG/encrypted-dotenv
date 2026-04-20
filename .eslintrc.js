@@ -11,7 +11,7 @@ module.exports = {
         node: true,
         jest: true,
     },
-    ignorePatterns: ['**/seed-data/generated/*.ts', '**/data-access/migrations/*.ts', '**/*.spec.ts'],
+    ignorePatterns: ['**/seed-data/generated/*.ts', '**/test-utils/*.ts', '**/data-access/migrations/*.ts', '**/*.spec.ts'],
     rules: {
         'prefer-const': 'error',
         'import/no-duplicates': 'error',

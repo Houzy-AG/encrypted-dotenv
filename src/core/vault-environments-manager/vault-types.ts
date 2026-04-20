@@ -6,6 +6,14 @@
 //  }
 export type EnvVaultJsonData = Record<string, string>;
 
+export interface DecryptedVaultInfo {
+    environmentName: string;
+    decrypted: boolean;
+    decryptedStringContent: string;
+    encryptedStringContent: string;
+    data: null | Record<string, string>;
+}
+
 // It looks something like this
 // {
 //     LOCAL: {
@@ -16,16 +24,7 @@ export type EnvVaultJsonData = Record<string, string>;
 //          decryptedStringContent: // The content of the vault .env file decrypted only present if decrypted is true
 //     }
 // }
-export type DecryptedVault = Record<
-    string,
-    {
-        environmentName: string;
-        decrypted: boolean;
-        decryptedStringContent: string;
-        encryptedStringContent: string;
-        data: null | Record<string, string>;
-    }
->;
+export type DecryptedVault = Record<string, DecryptedVaultInfo>;
 
 export const mapDecryptedVaultToDecodedVault = (vault: DecryptedVault): EnvVaultJsonData => {
     return Object.values(vault).reduce((acc, { environmentName, encryptedStringContent }) => {

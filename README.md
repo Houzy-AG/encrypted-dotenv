@@ -8,10 +8,10 @@ for local usage only
 
 As a cli you can use it with commands see `npx encrypted-dotenv --help`. Or you can lunch the interactive cli app using `npx encrypted-dotenv-interactive`
 
--   `Recreate Vault`:
+-   `Recreate VaultEnvironmentsManager`:
     -   Takes all `.env.*` file contents and encrypts them into a single file called `.env-vault.json`.
     -   It also dumps the encryption keys used to encrypt every env file into `.env.keys` - do not commit your keys in the repository
--   `Rotate Vault Keys`:
+-   `Rotate VaultEnvironmentsManager Keys`:
     -   Decrypts your `.env-vault.json` using `.env.keys` after that it generates a new set of keys for every file and encrypts the vault back. It also dumps the new keys in `.env.keys`
     -   This command is safe to use even if you miss some keys for your vault because if we couldn't decrypt your vault file because of various reasons we do not override the content of that file in the new `.env-vault.json`
 -   `Encrypt Env Files`:
@@ -22,9 +22,18 @@ As a cli you can use it with commands see `npx encrypted-dotenv --help`. Or you 
     -   For example if we had `.env.local` and `.env.production` + the keys to encrypt them we will reverse the process back from the vault
 -   `Print environment variables`
     -   It parses the current environment end prints what will process.env contain
--   `Generate Key`
-    -   Generates a new encryption key which can be used to add a new environment.
-    -   When you already have a vault, and you want to add a new environment you can generate a new key, create a new variable with the key for your new `.env.*` and then you can use `Encrypt Env Files` to add the new environment to the vault
+-   `Add Missing Env Files`
+    -   Looks on your directory to see what .env.* files are there and are not present in the vault
+    -   Adds new encryption keys for the env files
+    -   Encrypts the files and adds them to the vault
+-   `Cleanup Extra Env Files`
+    -   Remove all .env.* files which can be decrypted
+-   `Backup Vault`
+    -   Creates a backup copy of `.env-vault.json` named `.env-vault-backup.json`
+    -   This copy is useful if you want to execute a merge operation with a remote branch and you know `.env-vault.json` will have conflicts
+-   `Merge Env Vaults`
+    -   If you created a `.env-vault-backup.json` you can execute a merge between it and  `.env-vault.json`
+    -   The merge process will walk you through all the diffs of the env files and you will have to chose what you keep
 
 ### Install the package
 
@@ -47,7 +56,7 @@ encryptedEnv.configure();
 encryptedEnv.configure({ dotEnvFilesDirectory: `path to your directory with .env.* files it has to be relative to process.cwd()` });
 ```
 
-### Vault structure and logic
+### VaultEnvironmentsManager structure and logic
 The `.env.keys` file contains variables which define the encryption/decryption keys for different environments
 ```yaml
 VAULT_KEY_LOCAL=encryptionIV=m%252Fb%253Bp%257Dv-%257E%253CZ4%2521%253FwPaB.B%2522%2528%253A%2528Wy%257BCh%253AQ%2528%257EYYZ%257B%252Fe%255E2_%2521UyCmR%253A*nWEmzC%255B%257D1T7E%257BF%253D8MZ%2522%253E8TK%2528ggb%2521%255B%253APC%257B%252C%252CcmuZEBnPEjsVgFsgC*8T%253EA%2525P%253AAt8zKu%253A_N%252Cg%2523%255DGWeE%257D&encryptionKey=%253Er%2540P%253CRK_T6zd5Y*hq%2529C%255B%2523jw3%2523Kbqe7%253CbMqh%253D%257D%253F%255D%253AgMw%2540pUKPDpGpR%255DvM%257De%2522T%252CxbSSX%2524_sUf_3W%253EC%253A%2529q7%253FHNW%253BX%253A2f%252Cz%25233w5qG4k%255BkX%253AykV_2e%257Eb%253B%253Ac%2523q%253EymR%253E.Ja%252FT.A
@@ -55,7 +64,7 @@ VAULT_KEY_DEVELOPMENT=encryptionIV=m%252Fb%253Bp%257Dv-%257E%253CZ4%2521%253FwPa
 VAULT_KEY_STAGING=encryptionIV=m%252Fb%253Bp%257Dv-%257E%253CZ4%2521%253FwPaB.B%2522%2528%253A%2528Wy%257BCh%253AQ%2528%257EYYZ%257B%252Fe%255E2_%2521UyCmR%253A*nWEmzC%255B%257D1T7E%257BF%253D8MZ%2522%253E8TK%2528ggb%2521%255B%253APC%257B%252C%252CcmuZEBnPEjsVgFsgC*8T%253EA%2525P%253AAt8zKu%253A_N%252Cg%2523%255DGWeE%257D&encryptionKey=%253Er%2540P%253CRK_T6zd5Y*hq%2529C%255B%2523jw3%2523Kbqe7%253CbMqh%253D%257D%253F%255D%253AgMw%2540pUKPDpGpR%255DvM%257De%2522T%252CxbSSX%2524_sUf_3W%253EC%253A%2529q7%253FHNW%253BX%253A2f%252Cz%25233w5qG4k%255BkX%253AykV_2e%257Eb%253B%253Ac%2523q%253EymR%253E.Ja%252FT.A
 ```
 The naming of the environment variables is `VAULT_KEY_{{ENVIRONMENT_NAME_IN_UPPERCASE}}`.
-The `.env-vault.json` file contains separated entries for all your environments. Vault example:
+The `.env-vault.json` file contains separated entries for all your environments. VaultEnvironmentsManager example:
 
 ```json
 {

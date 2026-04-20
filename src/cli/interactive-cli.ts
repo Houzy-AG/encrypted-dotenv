@@ -1,50 +1,63 @@
 #!/usr/bin/env node
+import { isNil } from 'lodash';
 import * as process from 'process';
 import * as yargs from 'yargs';
-import { configure } from '../lib';
+import { createVaultEnvironmentsManager } from '../core/create-vault-environments-manager';
+import { defaultLogger } from '../core/logger/encrypted-env-logger';
+import { VaultEnvironmentsManager } from '../core/vault-environments-manager/vault-environments-manager';
 import { InteractiveCommandLineUi, MenuOption } from './interactive-command-line-ui';
-import * as reCreateVault from './commands/re-create-vault.command';
-import * as encryptVault from './commands/encrypt-vault.command';
-import * as decryptVault from './commands/decrypt-vault.command';
-import * as rotateKeys from './commands/rotate-keys.command';
-import * as generateKey from './commands/generate-key.command';
 
-const interactiveCli = new InteractiveCommandLineUi();
+const interactiveCli = new InteractiveCommandLineUi(defaultLogger);
 
 const args = yargs.parseSync(process.argv);
 const dotEnvFilesDirectory = (args.dotEnvFilesDirectory as string) || ``;
 
 const run = async (): Promise<void> => {
     let selectedOption: MenuOption | null = MenuOption.Exit;
+    const commandsByOption: Record<
+        Exclude<MenuOption, MenuOption.Exit>,
+        (vaultEnvironmentsManager: VaultEnvironmentsManager) => void | Promise<void>
+    > = {
+        [MenuOption.EncryptEnvFiles]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
+            vaultEnvironmentsManager.encryptDotEnvFiles();
+        },
+        [MenuOption.DecryptEnvFiles]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
+            vaultEnvironmentsManager.decryptDotEnvFiles();
+        },
+        [MenuOption.PrintEnvVars]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
+            vaultEnvironmentsManager.configureProcessEnv();
+            defaultLogger.info(JSON.stringify(process.env, null, 4));
+        },
+        [MenuOption.AddMissingEnvFiles]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
+            vaultEnvironmentsManager.addMissingEnvironments();
+        },
+        [MenuOption.RotateKeys]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
+            vaultEnvironmentsManager.rotateEncryptionKeys();
+        },
+        [MenuOption.Recreate]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
+            vaultEnvironmentsManager.reCreate();
+        },
+        [MenuOption.CleanupExtraEnvFiles]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
+            vaultEnvironmentsManager.removeDotEnvFiles();
+        },
+        [MenuOption.BackupVault]: (vaultEnvironmentsManager: VaultEnvironmentsManager) => {
+            vaultEnvironmentsManager.backup();
+        },
+        [MenuOption.MergeEnvVaults]: async (vaultEnvironmentsManager: VaultEnvironmentsManager): Promise<void> => {
+            return vaultEnvironmentsManager.mergeMainVaultWithBackup((options) => interactiveCli.askForAnswer(options));
+        },
+    };
+
     do {
         selectedOption = await interactiveCli.askForMenuOption();
 
-        switch (selectedOption) {
-            case MenuOption.Recreate:
-                reCreateVault.run({ dotEnvFilesDirectory });
-                interactiveCli.printSuccess();
-                break;
-            case MenuOption.RotateKeys:
-                rotateKeys.run({ dotEnvFilesDirectory });
-                interactiveCli.printSuccess();
-                break;
-            case MenuOption.EncryptEnvFiles:
-                encryptVault.run({ dotEnvFilesDirectory });
-                interactiveCli.printSuccess();
-                break;
-            case MenuOption.GenerateKey:
-                generateKey.run();
-                interactiveCli.printSuccess();
-                break;
-            case MenuOption.PrintEnvVars:
-                configure({ dotEnvFilesDirectory });
-                console.log(process.env);
-                interactiveCli.printSuccess();
-                break;
-            case MenuOption.DecryptEnvFiles:
-                decryptVault.run({ dotEnvFilesDirectory });
-                interactiveCli.printSuccess();
-                break;
+        const vaultEnvironmentsManager = createVaultEnvironmentsManager({
+            dotEnvFilesDirectory,
+            logger: defaultLogger,
+        });
+        if (!isNil(selectedOption) && selectedOption !== MenuOption.Exit) {
+            await commandsByOption[selectedOption](vaultEnvironmentsManager);
+            interactiveCli.printSuccess();
         }
     } while (selectedOption !== MenuOption.Exit);
 
@@ -53,7 +66,7 @@ const run = async (): Promise<void> => {
 };
 
 run().catch((e) => {
-    console.error('GlobalErrorHandler', e);
+    defaultLogger.error('GlobalErrorHandler', e);
     process.exit(1);
 });
 
