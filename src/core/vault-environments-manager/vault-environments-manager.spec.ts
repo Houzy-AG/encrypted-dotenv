@@ -394,9 +394,9 @@ describe(VaultEnvironmentsManager.name, () => {
                 fileName: `.env.local`,
                 fileContent: [
                     `# Comment Test one`,
-                    `TEST_VAR_6=Remote_branch_VAR_1`,
+                    `TEST_VAR_6="Remote_branch_VAR_1"`,
                     `# Second comment for second var`,
-                    `TEST_VAR_7=Lorem_ipsum_2_VAR_2`,
+                    `TEST_VAR_7="Lorem_ipsum_2_VAR_2"`,
                 ].join(os.EOL),
             });
             vaultEnvironmentsManager.encryptDotEnvFiles();

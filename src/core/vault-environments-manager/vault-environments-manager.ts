@@ -341,7 +341,6 @@ export class VaultEnvironmentsManager {
 
     public async mergeMainVaultWithBackup(askUserToDecideOnMergeConflict: AskForConflictFunction): Promise<void> {
         const vaultDifferences = this.getDiffsWithBackup();
-        const oldVault = cloneDeep(vaultDifferences.mainVault);
         const finalVault = cloneDeep(vaultDifferences.mainVault);
 
         const toDeleteEnvVars: Record<string, string[]> = {};
@@ -410,7 +409,6 @@ export class VaultEnvironmentsManager {
             for (const toDeleteEnvVarName of toDeleteEnvVars[environmentName] ?? []) {
                 decryptedStringContent = deleteEnvVarFromFile({
                     envVarName: toDeleteEnvVarName,
-                    oldEnvVarValue: oldVault[environmentName]?.data?.[toDeleteEnvVarName] ?? ``,
                     dotEnvFileContent: decryptedStringContent,
                 });
             }
@@ -419,9 +417,6 @@ export class VaultEnvironmentsManager {
                 const newEnvVarValue = finalVault[environmentName]?.data?.[envVarName] ?? ``;
                 decryptedStringContent = replaceOrInsertEnvVarInFile({
                     envVarName,
-                    // The old env var value is can be in the old vault but if the env var was missing from the old vault then it's in the
-                    // final vault.
-                    oldEnvVarValue: oldVault[environmentName]?.data?.[envVarName] ?? newEnvVarValue,
                     newEnvVarValue,
                     dotEnvFileContent: decryptedStringContent,
                 });
