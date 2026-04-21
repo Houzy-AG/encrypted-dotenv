@@ -18,9 +18,7 @@ export const generateEnvVarMatchTemplates = (
     };
 
     return [
-    
         { match: `${envVarName}="${oldEnvVarValue}"`, replacer: getReplacer(``) },
-    
         { match: `${envVarName}=${oldEnvVarValue}`, replacer: getReplacer(``) },
     ];
 };
